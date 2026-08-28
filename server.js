@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 3000;
 // ⚠️ ضع رابط قاعدة بيانات Firebase الخاص بك هنا 
 const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
-// 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
@@ -16,7 +15,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 🚀 نظام التخزين المؤقت (Cache) لتقليل استهلاك Firebase
 const localCache = new Map();
 
 async function getAuthDataFromFirebase(password) {
@@ -67,7 +65,6 @@ function safeFallback(action) {
     } else return [];
 }
 
-// 🚀 الاتصال المباشر بسيرفرات Stalker من Render لتجاوز Cloudflare
 async function callStalkerDirect(serverUrl, macAddress, stalkerType, stalkerAction, token = null) {
     let targetUrl = "";
     let headers = {
@@ -166,7 +163,6 @@ async function fetchContentStrict(server, mac, type, allowedIds, categoryId, tok
     return Array.from(uniqueMap.values());
 }
 
-// 🚀 إنشاء الحسابات وحفظها في Firebase (بديل الـ Worker)
 app.post('/create_account', async (req, res) => {
     try {
         const { mac, server, selections } = req.body;
@@ -192,7 +188,6 @@ app.post('/create_account', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 واجهة فحص السيرفر وجلب الجروبات مباشرة عبر Render
 app.get('/api/scan', async (req, res) => {
     let server = req.query.server;
     let mac = req.query.mac;
@@ -212,6 +207,60 @@ app.get('/api/scan', async (req, res) => {
 
         res.json({ success: true, categories: { live: formatCats(liveRes?.js), vod: formatCats(vodRes?.js), series: formatCats(seriesRes?.js) } });
     } catch(e) { res.json({success: false, error: e.message}); }
+});
+
+// 🚀 [جديد] واجهة جلب المحتوى لعرضه في الواجهة
+app.post('/api/get_items', async (req, res) => {
+    const { server, mac, type, selectedCats } = req.body;
+    try {
+        let hsRaw = await callStalkerDirect(server, mac, "stb", "handshake", null);
+        let tk = hsRaw?.js?.token;
+        if(!tk) return res.json({success: false, error: "MAC Blocked"});
+
+        let items = await fetchContentStrict(server, mac, type, selectedCats, null, tk);
+        let formatted = items.map(item => ({
+            id: item.id || item.cmd,
+            name: item.name || item.cmd,
+            logo: item.logo || item.screenshot_uri || ""
+        }));
+        
+        res.json({ success: true, data: formatted });
+    } catch(e) { res.json({success: false, error: e.message}); }
+});
+
+// 🚀 [جديد] بروكسي الفيديو لتخطي CORS (Streaming Pipe)
+app.get('/proxy_stream', async (req, res) => {
+    let { server, mac, stream_id, type } = req.query;
+    try {
+        let tkRes = await callStalkerDirect(server, mac, "stb", "handshake", null);
+        let tk = tkRes?.js?.token;
+        if(!tk) return res.status(403).send("Blocked");
+
+        let streamUrl = "";
+        if (type === 'vod') {
+            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
+        } else {
+            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if (!streamUrl) {
+                 linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
+                 streamUrl = linkRes?.js?.cmd;
+            }
+            if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
+        }
+
+        if(!streamUrl) return res.status(404).send("Stream not found");
+
+        // Streaming proxy to bypass CORS
+        const fetchRes = await fetch(streamUrl, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" }
+        });
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
+        fetchRes.body.pipe(res); // Pipe the stream back to the browser
+
+    } catch(e) { res.status(500).send("Proxy Error"); }
 });
 
 app.get('/get.php', async (req, res) => {
