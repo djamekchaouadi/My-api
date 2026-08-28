@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 // ⚠️ ضع رابط قاعدة بيانات Firebase الخاص بك هنا 
 const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
+// 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
@@ -209,7 +210,6 @@ app.get('/api/scan', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [جديد] واجهة جلب المحتوى لعرضه في الواجهة
 app.post('/api/get_items', async (req, res) => {
     const { server, mac, type, selectedCats } = req.body;
     try {
@@ -228,7 +228,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [جديد] بروكسي الفيديو لتخطي CORS (Streaming Pipe)
+// 🚀 بروكسي الفيديو المعدل: يعمل كتطبيق VLC ويتعامل مع TS بشكل صحيح
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -238,7 +238,9 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         if (type === 'vod') {
-            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
+            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
         } else {
             let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
             streamUrl = linkRes?.js?.cmd;
@@ -251,14 +253,30 @@ app.get('/proxy_stream', async (req, res) => {
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
-        // Streaming proxy to bypass CORS
+        // 🚀 الاتصال بالسيرفر كاننا VLC Player لتجنب الحظر
         const fetchRes = await fetch(streamUrl, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" }
+            headers: { 
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            },
+            redirect: 'follow'
         });
-        
+
+        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
+
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
-        fetchRes.body.pipe(res); // Pipe the stream back to the browser
+        
+        // ربط تدفق الفيديو مباشرة
+        fetchRes.body.pipe(res);
+
+        // 💡 خدعة هامة: عند قيام المستخدم بإغلاق الفيديو، نقوم بإيقاف السحب من IPTV لتوفير الباندويث
+        req.on('close', () => {
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
+                fetchRes.body.destroy();
+            }
+        });
 
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
@@ -396,106 +414,4 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             }));
         } 
         else if (apiAction === "get_series") {
-            let reqCat = (categoryId && categoryId !== "null" && categoryId !== "*" && categoryId !== "0") ? String(categoryId) : null;
-            if (reqCat && !sel.s.includes('ALL') && !sel.s.includes(reqCat)) return res.json([]);
-            let series = await fetchContentStrict(portalServer, stalkerMac, "series", sel.s, categoryId, stalkerToken);
-            
-            responseData = series.filter(s => !isAdultContent(s.name)).map(s => ({
-                num: parseInt(s.id) || 0, name: String(s.name), series_id: parseInt(s.id) || 0, cover: String(s.screenshot_uri || s.logo || ""), category_id: String(s.injected_cat_id || "0"), plot: "", cast: "", director: "", genre: "", releaseDate: "", last_modified: "1600000000", rating: "5", rating_5based: 5.0, backdrop_path: [], youtube_trailer: "", episode_run_time: "0"
-            }));
-        }
-        else if (apiAction === "get_series_info" && seriesId) {
-            try {
-                let data = await fetchContentStrict(portalServer, stalkerMac, "series", ['ALL'], null, stalkerToken, `&movie_id=${seriesId}&season_id=0&episode_id=0`);
-                let seasonsInfo = []; let epsObj = {}; let seasonIndex = 1;
-                
-                if (data.length > 0) {
-                    for (let season of data) {
-                        let seasonCmd = season.cmd;
-                        if (!seasonCmd) continue;
-                        let episodesArr = season.series; 
-                        if (!Array.isArray(episodesArr) || episodesArr.length === 0) continue;
-                        
-                        let sNum = String(season.season || seasonIndex);
-                        if (!epsObj[sNum]) epsObj[sNum] = [];
-                        
-                        for (let ep of episodesArr) {
-                            let episodeNum = String(ep);
-                            let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
-                            
-                            epsObj[sNum].push({ 
-                                id: streamIdRaw, episode_num: parseInt(episodeNum) || 0, title: `Episode ${episodeNum}`, container_extension: "mkv", info: { movie_image: String(season.screenshot_uri || season.cover || ""), plot: "", releasedate: "", rating: "5", rating_5based: 5.0, duration_secs: 0, duration: "" }, custom_sid: "", added: "1600000000", season: parseInt(sNum), direct_source: "" 
-                            });
-                        }
-                        seasonsInfo.push({ air_date: "", episode_count: episodesArr.length, id: parseInt(sNum), name: `Season ${sNum}`, overview: "", season_number: parseInt(sNum), cover: "", cover_big: "" });
-                        seasonIndex++;
-                    }
-                }
-                if (seasonsInfo.length === 0) { seasonsInfo.push({ air_date: "", episode_count: 0, id: 1, name: "Season 1", overview: "", season_number: 1, cover: "", cover_big: "" }); epsObj["1"] = []; }
-                responseData = { seasons: seasonsInfo, episodes: epsObj, info: { name: "GAMERDZ Series", cover: "", plot: "", cast: "", director: "", genre: "", releaseDate: "", rating: "5", rating_5based: 5.0, backdrop_path: [] } };
-            } catch(e) { responseData = safeFallback("get_series_info"); }
-        }
-        else if (apiAction === "get_short_epg" || apiAction === "get_simple_data_table") {
-            responseData = { epg_listings: [] };
-        }
-
-        return res.json(responseData);
-    } catch (e) { return res.json(safeFallback(apiAction)); }
-});
-
-app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
-    const type = req.path.split('/')[1] || "live";
-    const username = decodeURIComponent(req.params.user).trim();
-    const reqPass = decodeURIComponent(req.params.pass).trim();
-    let streamId = req.params.stream; if (streamId.includes('.')) streamId = streamId.split('.')[0];
-
-    let authData = await getAuthDataFromFirebase(reqPass);
-    if (!authData || authData.mac.toLowerCase() !== username.toLowerCase()) return res.status(403).send("Unauthorized");
-
-    let server = authData.srv;
-    let stalkerMac = authData.mac; 
-
-    try {
-        if (type === "movie") return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`);
-
-        if (type === "series") {
-            let actualId = streamId;
-            let playToken = "";
-            try {
-                let decodedId = decodeSafeBase64(streamId);
-                if (decodedId.includes("::::")) actualId = decodedId.split("::::")[0];
-            } catch(e) {}
-
-            if (actualId.includes("-")) {
-                let idx = actualId.indexOf("-");
-                playToken = actualId.substring(idx + 1);
-                actualId = actualId.substring(0, idx);
-            }
-
-            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
-            if (playToken) directUrl += `&play_token=${playToken}`;
-            return res.redirect(directUrl);
-        }
-
-        const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-        const stalkerToken = handshakeRes?.js?.token;
-        if (!stalkerToken) return res.status(403).send("MAC Blocked");
-
-        let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
-        let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
-        let streamUrl = linkRes?.js?.cmd;
-
-        if (!streamUrl) { 
-            linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
-            streamUrl = linkRes?.js?.cmd; 
-        }
-
-        if (streamUrl) { 
-            let finalUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
-            return res.redirect(finalUrl); 
-        }
-        return res.status(404).send("Stream Not Found");
-    } catch(e) { return res.status(500).send("Bridge Error"); }
-});
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+            let reqCat = (categoryId && categoryId !== "null"
