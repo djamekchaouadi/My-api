@@ -414,4 +414,106 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             }));
         } 
         else if (apiAction === "get_series") {
-            let reqCat = (categoryId && categoryId !== "null"
+            let reqCat = (categoryId && categoryId !== "null" && categoryId !== "*" && categoryId !== "0") ? String(categoryId) : null;
+            if (reqCat && !sel.s.includes('ALL') && !sel.s.includes(reqCat)) return res.json([]);
+            let series = await fetchContentStrict(portalServer, stalkerMac, "series", sel.s, categoryId, stalkerToken);
+            
+            responseData = series.filter(s => !isAdultContent(s.name)).map(s => ({
+                num: parseInt(s.id) || 0, name: String(s.name), series_id: parseInt(s.id) || 0, cover: String(s.screenshot_uri || s.logo || ""), category_id: String(s.injected_cat_id || "0"), plot: "", cast: "", director: "", genre: "", releaseDate: "", last_modified: "1600000000", rating: "5", rating_5based: 5.0, backdrop_path: [], youtube_trailer: "", episode_run_time: "0"
+            }));
+        }
+        else if (apiAction === "get_series_info" && seriesId) {
+            try {
+                let data = await fetchContentStrict(portalServer, stalkerMac, "series", ['ALL'], null, stalkerToken, `&movie_id=${seriesId}&season_id=0&episode_id=0`);
+                let seasonsInfo = []; let epsObj = {}; let seasonIndex = 1;
+                
+                if (data.length > 0) {
+                    for (let season of data) {
+                        let seasonCmd = season.cmd;
+                        if (!seasonCmd) continue;
+                        let episodesArr = season.series; 
+                        if (!Array.isArray(episodesArr) || episodesArr.length === 0) continue;
+                        
+                        let sNum = String(season.season || seasonIndex);
+                        if (!epsObj[sNum]) epsObj[sNum] = [];
+                        
+                        for (let ep of episodesArr) {
+                            let episodeNum = String(ep);
+                            let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
+                            
+                            epsObj[sNum].push({ 
+                                id: streamIdRaw, episode_num: parseInt(episodeNum) || 0, title: `Episode ${episodeNum}`, container_extension: "mkv", info: { movie_image: String(season.screenshot_uri || season.cover || ""), plot: "", releasedate: "", rating: "5", rating_5based: 5.0, duration_secs: 0, duration: "" }, custom_sid: "", added: "1600000000", season: parseInt(sNum), direct_source: "" 
+                            });
+                        }
+                        seasonsInfo.push({ air_date: "", episode_count: episodesArr.length, id: parseInt(sNum), name: `Season ${sNum}`, overview: "", season_number: parseInt(sNum), cover: "", cover_big: "" });
+                        seasonIndex++;
+                    }
+                }
+                if (seasonsInfo.length === 0) { seasonsInfo.push({ air_date: "", episode_count: 0, id: 1, name: "Season 1", overview: "", season_number: 1, cover: "", cover_big: "" }); epsObj["1"] = []; }
+                responseData = { seasons: seasonsInfo, episodes: epsObj, info: { name: "GAMERDZ Series", cover: "", plot: "", cast: "", director: "", genre: "", releaseDate: "", rating: "5", rating_5based: 5.0, backdrop_path: [] } };
+            } catch(e) { responseData = safeFallback("get_series_info"); }
+        }
+        else if (apiAction === "get_short_epg" || apiAction === "get_simple_data_table") {
+            responseData = { epg_listings: [] };
+        }
+
+        return res.json(responseData);
+    } catch (e) { return res.json(safeFallback(apiAction)); }
+});
+
+app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
+    const type = req.path.split('/')[1] || "live";
+    const username = decodeURIComponent(req.params.user).trim();
+    const reqPass = decodeURIComponent(req.params.pass).trim();
+    let streamId = req.params.stream; if (streamId.includes('.')) streamId = streamId.split('.')[0];
+
+    let authData = await getAuthDataFromFirebase(reqPass);
+    if (!authData || authData.mac.toLowerCase() !== username.toLowerCase()) return res.status(403).send("Unauthorized");
+
+    let server = authData.srv;
+    let stalkerMac = authData.mac; 
+
+    try {
+        if (type === "movie") return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`);
+
+        if (type === "series") {
+            let actualId = streamId;
+            let playToken = "";
+            try {
+                let decodedId = decodeSafeBase64(streamId);
+                if (decodedId.includes("::::")) actualId = decodedId.split("::::")[0];
+            } catch(e) {}
+
+            if (actualId.includes("-")) {
+                let idx = actualId.indexOf("-");
+                playToken = actualId.substring(idx + 1);
+                actualId = actualId.substring(0, idx);
+            }
+
+            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
+            if (playToken) directUrl += `&play_token=${playToken}`;
+            return res.redirect(directUrl);
+        }
+
+        const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
+        const stalkerToken = handshakeRes?.js?.token;
+        if (!stalkerToken) return res.status(403).send("MAC Blocked");
+
+        let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
+        let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
+        let streamUrl = linkRes?.js?.cmd;
+
+        if (!streamUrl) { 
+            linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
+            streamUrl = linkRes?.js?.cmd; 
+        }
+
+        if (streamUrl) { 
+            let finalUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
+            return res.redirect(finalUrl); 
+        }
+        return res.status(404).send("Stream Not Found");
+    } catch(e) { return res.status(500).send("Bridge Error"); }
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
