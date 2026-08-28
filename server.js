@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ⚠️ ضع رابط قاعدة بيانات Firebase الخاص بك هنا 
-const FIREBASE_URL = "https://your-project-default-rtdb.europe-west1.firebasedatabase.app"; 
+const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
 // 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
