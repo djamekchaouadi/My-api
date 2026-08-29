@@ -52,6 +52,24 @@ function isAdultContent(name) {
     return /porn|xxx|adult|18\+|erotic|sex|adults/i.test(name.toLowerCase());
 }
 
+// 🚀 المعالج الذكي لمسارات الأيقونات (لإظهار اللوجو الحقيقي في M3U و Xtream)
+function getRealLogo(serverUrl, logoPath, type) {
+    if (!logoPath) return "";
+    let url = String(logoPath).trim();
+    if (url.startsWith('http')) return url;
+    
+    let srv = serverUrl.replace(/\/+$/, '');
+    if (url.startsWith('/')) return srv + url;
+    
+    if (url.includes('/')) return srv + '/' + url;
+    
+    if (type === 'vod' || type === 'series') {
+        return srv + '/stalker_portal/misc/video_cover/' + url;
+    } else {
+        return srv + '/stalker_portal/misc/logos/320/' + url;
+    }
+}
+
 function safeFallback(action) {
     let timeNow = new Date().toISOString().replace('T', ' ').substring(0, 19);
     if (action === "") {
@@ -221,7 +239,7 @@ app.post('/api/get_items', async (req, res) => {
         let formatted = items.map(item => ({
             id: item.id || item.cmd,
             name: item.name || item.cmd,
-            logo: item.logo || item.screenshot_uri || ""
+            logo: getRealLogo(server, item.logo || item.screenshot_uri, type) // 🚀 جلب اللوجو الحقيقي للواجهة
         }));
         
         res.json({ success: true, data: formatted });
@@ -253,7 +271,6 @@ app.get('/proxy_stream', async (req, res) => {
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
-        // 🚀 الاتصال بالسيرفر كاننا VLC Player لتجنب الحظر
         const fetchRes = await fetch(streamUrl, {
             headers: { 
                 "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
@@ -268,10 +285,8 @@ app.get('/proxy_stream', async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
         
-        // ربط تدفق الفيديو مباشرة
         fetchRes.body.pipe(res);
 
-        // 💡 خدعة هامة: عند قيام المستخدم بإغلاق الفيديو، نقوم بإيقاف السحب من IPTV لتوفير الباندويث
         req.on('close', () => {
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
                 fetchRes.body.destroy();
@@ -311,7 +326,7 @@ app.get('/get.php', async (req, res) => {
             for(let ch of channels) {
                 let cId = String(ch.injected_cat_id || "0");
                 let cName = catMap[cId] || "Live";
-                let logo = ch.logo || "";
+                let logo = getRealLogo(portalServer, ch.logo, 'itv'); // 🚀 جلب اللوجو الحقيقي للـ M3U
                 let name = ch.name || "Unknown";
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
                 res.write(`${fullUrl}/live/${username}/${password}/${ch.id}.ts\n`);
@@ -328,7 +343,7 @@ app.get('/get.php', async (req, res) => {
                 if(isAdultContent(v.name)) continue;
                 let cId = String(v.injected_cat_id || "0");
                 let cName = catMap[cId] || "Movies";
-                let logo = v.screenshot_uri || v.logo || "";
+                let logo = getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod'); // 🚀 جلب اللوجو الحقيقي للـ M3U
                 let name = v.name || v.cmd;
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
                 res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`);
@@ -401,7 +416,9 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             let channels = await fetchContentStrict(portalServer, stalkerMac, "itv", sel.l, categoryId, stalkerToken);
             
             responseData = channels.map(ch => ({
-                num: parseInt(ch.number || ch.id) || 0, name: String(ch.name || "Unknown"), stream_type: "live", stream_id: parseInt(ch.id) || 0, stream_icon: String(ch.logo || ""), epg_channel_id: null, added: "1600000000", category_id: String(ch.injected_cat_id || "0"), custom_sid: "", tv_archive: parseInt(ch.tv_archive) || 0, direct_source: "", tv_archive_duration: parseInt(ch.tv_archive_duration) || 0
+                num: parseInt(ch.number || ch.id) || 0, name: String(ch.name || "Unknown"), stream_type: "live", stream_id: parseInt(ch.id) || 0, 
+                stream_icon: getRealLogo(portalServer, ch.logo, 'itv'), // 🚀 لوجو حقيقي لـ Xtream API
+                epg_channel_id: null, added: "1600000000", category_id: String(ch.injected_cat_id || "0"), custom_sid: "", tv_archive: parseInt(ch.tv_archive) || 0, direct_source: "", tv_archive_duration: parseInt(ch.tv_archive_duration) || 0
             }));
         } 
         else if (apiAction === "get_vod_streams") {
@@ -410,7 +427,9 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             let vods = await fetchContentStrict(portalServer, stalkerMac, "vod", sel.v, categoryId, stalkerToken);
             
             responseData = vods.filter(v => !isAdultContent(v.name)).map(v => ({
-                num: parseInt(v.id) || 0, name: String(v.name || v.cmd), stream_type: "movie", stream_id: parseInt(v.id) || 0, stream_icon: String(v.screenshot_uri || v.logo || ""), added: "1600000000", category_id: String(v.injected_cat_id || "0"), container_extension: "mkv", rating: String(v.rating || "5"), rating_5based: 5.0, custom_sid: "", direct_source: ""
+                num: parseInt(v.id) || 0, name: String(v.name || v.cmd), stream_type: "movie", stream_id: parseInt(v.id) || 0, 
+                stream_icon: getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod'), // 🚀 لوجو حقيقي لـ Xtream API
+                added: "1600000000", category_id: String(v.injected_cat_id || "0"), container_extension: "mkv", rating: String(v.rating || "5"), rating_5based: 5.0, custom_sid: "", direct_source: ""
             }));
         } 
         else if (apiAction === "get_series") {
@@ -419,7 +438,9 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             let series = await fetchContentStrict(portalServer, stalkerMac, "series", sel.s, categoryId, stalkerToken);
             
             responseData = series.filter(s => !isAdultContent(s.name)).map(s => ({
-                num: parseInt(s.id) || 0, name: String(s.name), series_id: parseInt(s.id) || 0, cover: String(s.screenshot_uri || s.logo || ""), category_id: String(s.injected_cat_id || "0"), plot: "", cast: "", director: "", genre: "", releaseDate: "", last_modified: "1600000000", rating: "5", rating_5based: 5.0, backdrop_path: [], youtube_trailer: "", episode_run_time: "0"
+                num: parseInt(s.id) || 0, name: String(s.name), series_id: parseInt(s.id) || 0, 
+                cover: getRealLogo(portalServer, s.screenshot_uri || s.logo, 'series'), // 🚀 لوجو حقيقي لـ Xtream API
+                category_id: String(s.injected_cat_id || "0"), plot: "", cast: "", director: "", genre: "", releaseDate: "", last_modified: "1600000000", rating: "5", rating_5based: 5.0, backdrop_path: [], youtube_trailer: "", episode_run_time: "0"
             }));
         }
         else if (apiAction === "get_series_info" && seriesId) {
@@ -442,7 +463,9 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
                             let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
                             
                             epsObj[sNum].push({ 
-                                id: streamIdRaw, episode_num: parseInt(episodeNum) || 0, title: `Episode ${episodeNum}`, container_extension: "mkv", info: { movie_image: String(season.screenshot_uri || season.cover || ""), plot: "", releasedate: "", rating: "5", rating_5based: 5.0, duration_secs: 0, duration: "" }, custom_sid: "", added: "1600000000", season: parseInt(sNum), direct_source: "" 
+                                id: streamIdRaw, episode_num: parseInt(episodeNum) || 0, title: `Episode ${episodeNum}`, container_extension: "mkv", 
+                                info: { movie_image: getRealLogo(portalServer, season.screenshot_uri || season.cover, 'series'), plot: "", releasedate: "", rating: "5", rating_5based: 5.0, duration_secs: 0, duration: "" }, 
+                                custom_sid: "", added: "1600000000", season: parseInt(sNum), direct_source: "" 
                             });
                         }
                         seasonsInfo.push({ air_date: "", episode_count: episodesArr.length, id: parseInt(sNum), name: `Season ${sNum}`, overview: "", season_number: parseInt(sNum), cover: "", cover_big: "" });
@@ -498,7 +521,6 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
             if (playToken) finalStreamUrl += `&play_token=${playToken}`;
         } 
         else {
-            // Live TV Logic
             const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
             const stalkerToken = handshakeRes?.js?.token;
             if (!stalkerToken) return res.status(403).send("MAC Blocked");
@@ -519,26 +541,22 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
 
         if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
 
-        // 🚀 السحر هنا: سحب الفيديو عبر سيرفرك وضخه للمستخدم لتخطي حظر الـ IP-Lock بالكامل
         const fetchRes = await fetch(finalStreamUrl, {
             headers: { 
-                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", // مهم جداً لتخطي حظر المشغلات (User-Agent Block)
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
                 "Accept": "*/*",
                 "Connection": "keep-alive"
             },
-            redirect: 'follow' // تتبع التحويلات الداخلية لسيرفر ستالكر
+            redirect: 'follow' 
         });
 
         if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
 
-        // تمرير الهيدرز (Headers) للمشغل ليظن أنه يتعامل مع السيرفر الأصلي
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', fetchRes.headers.get('content-type') || (type === "live" ? 'video/mp2t' : 'video/mp4'));
         
-        // ضخ بيانات الفيديو (Streaming) مباشرة للمستخدم
         fetchRes.body.pipe(res);
 
-        // 💡 حماية سيرفر رندر: عند قيام المستخدم بإغلاق القناة أو إطفاء التلفاز، نقطع الاتصال فوراً لتوفير الباندويث
         req.on('close', () => {
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
                 fetchRes.body.destroy();
