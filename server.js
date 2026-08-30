@@ -13,7 +13,7 @@ process.on('uncaughtException', function (err) { console.error('Caught exception
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '5mb' })); // تم تقليل الحجم لحماية السيرفر من هجمات DoS
+app.use(express.json({ limit: '5mb' })); 
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 const localCache = new Map();
@@ -249,16 +249,22 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
-        // 🌟 للأفلام: جلب الرابط المباشر للفيلم MKV/MP4
+        // 🌟 للأفلام (VOD): يجب استخراج الرابط المباشر الصحيح من السيرفر
         if (type === 'vod' || type === 'movie') {
             let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
-            streamUrl = linkRes?.js?.cmd;
-            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
+            
+            // تحقق إذا ما كان الرابط يبدأ بـ http، وإلا قم بدمجه مع مسار السيرفر الأساسي
+            if (linkRes?.js?.cmd && linkRes.js.cmd.startsWith("http")) {
+                streamUrl = linkRes.js.cmd;
+            } else {
+                 // إذا فشل إنشاء الرابط، نعتمد الاستراتيجية البديلة القوية
+                 streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}&extension=mp4&type=vod`;
+            }
+            
         } else {
-            // 🌟 للقنوات: فرض إرجاع صيغة TS المباشرة لتجنب ملفات M3U8 التي تعطل المشغل
+            // 🌟 للقنوات (Live): فرض إرجاع صيغة TS المباشرة لتجنب ملفات M3U8 التي تعطل المشغل
             streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
             
-            // تحقق احتياطي إذا كان السيرفر يعتمد ffmpeg
             let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
             if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
                 streamUrl = linkRes.js.cmd.startsWith('ffmpeg ') ? linkRes.js.cmd.split(' ').pop() : linkRes.js.cmd;
@@ -280,8 +286,8 @@ app.get('/proxy_stream', async (req, res) => {
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
-            redirect: 'follow',
-            timeout: 0 // إلغاء التايم أوت حتى لا ينقطع البث المباشر
+            redirect: 'follow', // السحر هنا: يتتبع تحويلات السيرفر حتى يمسك بملف الفيديو الحقيقي
+            timeout: 0
         });
 
         // الاستجابة 206 تعني Partial Content (ضرورية للأفلام)
@@ -296,7 +302,7 @@ app.get('/proxy_stream', async (req, res) => {
             if (fetchRes.headers.has(h)) res.setHeader(h, fetchRes.headers.get(h));
         });
 
-        // فرض نوع المحتوى للمشغل
+        // فرض نوع المحتوى للمشغل حتى لا يرتبك المتصفح
         if (!res.getHeader('Content-Type')) {
             res.setHeader('Content-Type', (type === 'vod' || type === 'movie') ? 'video/mp4' : 'video/mp2t');
         }
