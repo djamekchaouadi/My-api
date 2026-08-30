@@ -53,7 +53,7 @@ function isAdultContent(name) {
     return /porn|xxx|adult|18\+|erotic|sex|adults/i.test(name.toLowerCase());
 }
 
-// 🚀 المعالج الذكي لمسارات الأيقونات (لإظهار اللوجو الحقيقي في M3U و Xtream)
+// 🚀 المعالج الذكي لمسارات الأيقونات
 function getRealLogo(serverUrl, logoPath, type) {
     if (!logoPath) return "";
     let url = String(logoPath).trim();
@@ -250,7 +250,6 @@ app.post('/api/get_items', async (req, res) => {
 });
 
 // 🚀 بروكسي الفيديو لواجهة المشغل الداخلي
-// 🚀 بروكسي الفيديو لواجهة المشغل الداخلي
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -260,52 +259,60 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
-        // 🌟 التعديل الجذري: الأفلام (VOD) تعمل بتوجيه مباشر (Redirect)
+        // جلب الرابط الأصلي سواء للأفلام أو القنوات
         if (type === 'vod') {
             let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
             streamUrl = linkRes?.js?.cmd;
             if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
-            
-            // التوجيه المباشر يحل مشكلة Loading نهائياً ويخفف الضغط عن سيرفر رندر بنسبة 90%
-            return res.redirect(streamUrl);
-        } 
-        
-        // 📡 البث المباشر (Live TV) يبقى عبر البروكسي كما هو
-        let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
-        streamUrl = linkRes?.js?.cmd;
-        if (!streamUrl) {
-             linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
-             streamUrl = linkRes?.js?.cmd;
+        } else {
+            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if (!streamUrl) {
+                 linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
+                 streamUrl = linkRes?.js?.cmd;
+            }
+            if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
         }
-        if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
-        // 🛡️ نقل ترويسات التقطيع (Range) لدعم البث بشكل أسرع
+        // 🛡️ نقل ترويسات التقطيع (Range) ليعمل التقديم والتأخير في الأفلام عبر البروكسي
         let reqHeaders = { 
             "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
             "Accept": "*/*",
             "Connection": "keep-alive"
         };
-        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
+        
+        // هذا السطر يخبر السيرفر الخارجي أن المتصفح يريد تقطيع الفيديو (Range)
+        if (req.headers.range) {
+            reqHeaders["Range"] = req.headers.range;
+        }
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
             redirect: 'follow'
         });
 
-        // السماح بالكود 206 (Partial Content)
+        // السماح بالاستجابة 206 (Partial Content) الخاصة بتقطيع الأفلام
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
+        
+        let contentType = fetchRes.headers.get('content-type');
+        if (!contentType || contentType.includes('application/octet-stream')) {
+            contentType = type === 'vod' ? 'video/mp4' : 'video/mp2t';
+        }
+        res.setHeader('Content-Type', contentType);
 
-        // تمرير أحجام الملفات للعميل ليتمكن من التشغيل السلس
+        // تمرير ترويسات التقسيم (Range) لمتصفح الويب كي لا يتوقف عن التحميل
         if (fetchRes.headers.get('content-range')) {
             res.status(206);
             res.setHeader('Content-Range', fetchRes.headers.get('content-range'));
             res.setHeader('Accept-Ranges', 'bytes');
+        } else {
+            res.setHeader('Accept-Ranges', 'bytes');
         }
+
         if (fetchRes.headers.get('content-length')) {
             res.setHeader('Content-Length', fetchRes.headers.get('content-length'));
         }
@@ -511,7 +518,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 إرجاع نظام التحويل المباشر القوي (Redirect) لمنع انهيار السيرفر وجعل القنوات تعمل بكفاءة
+// 🚀 إرجاع نظام التحويل المباشر القوي للملفات الخارجية (M3U و Xtream)
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
