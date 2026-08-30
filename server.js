@@ -494,84 +494,54 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
     const username = decodeURIComponent(req.params.user).trim();
     const reqPass = decodeURIComponent(req.params.pass).trim();
     let streamId = req.params.stream; if (streamId.includes('.')) streamId = streamId.split('.')[0];
-
-    let authData = await getAuthDataFromFirebase(reqPass);
+    
+    let authData = getAuthData(req);
     if (!authData || authData.mac.toLowerCase() !== username.toLowerCase()) return res.status(403).send("Unauthorized");
-
+    
     let server = authData.srv;
     let stalkerMac = authData.mac; 
 
     try {
-        let finalStreamUrl = "";
-
-        if (type === "movie") {
-            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
-        } 
-        else if (type === "series") {
+        if (type === "movie") return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`);
+        
+        if (type === "series") {
             let actualId = streamId;
             let playToken = "";
             try {
                 let decodedId = decodeSafeBase64(streamId);
                 if (decodedId.includes("::::")) actualId = decodedId.split("::::")[0];
             } catch(e) {}
-
+            
             if (actualId.includes("-")) {
                 let idx = actualId.indexOf("-");
                 playToken = actualId.substring(idx + 1);
                 actualId = actualId.substring(0, idx);
             }
 
-            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
-            if (playToken) finalStreamUrl += `&play_token=${playToken}`;
-        } 
-        else {
-            // Live TV Logic
-            const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-            const stalkerToken = handshakeRes?.js?.token;
-            if (!stalkerToken) return res.status(403).send("MAC Blocked");
-
-            let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
-            let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
-            let streamUrl = linkRes?.js?.cmd;
-
-            if (!streamUrl) { 
-                linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
-                streamUrl = linkRes?.js?.cmd; 
-            }
-
-            if (streamUrl) { 
-                finalStreamUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
-            }
+            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
+            if (playToken) directUrl += `&play_token=${playToken}`;
+            return res.redirect(directUrl);
         }
-
-        if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
-
-        // 🚀 السحر هنا: سحب الفيديو عبر سيرفرك وضخه للمستخدم لتخطي حظر الـ IP-Lock بالكامل
-        const fetchRes = await fetch(finalStreamUrl, {
-            headers: { 
-                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-                "Accept": "*/*",
-                "Connection": "keep-alive"
-            },
-            redirect: 'follow' 
-        });
-
-        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
-
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || (type === "live" ? 'video/mp2t' : 'video/mp4'));
         
-        fetchRes.body.pipe(res);
-
-        req.on('close', () => {
-            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
-                fetchRes.body.destroy();
-            }
-        });
-
-    } catch(e) { 
-        return res.status(500).send("Bridge Error"); 
-    }
+        const handshakeRes = await callStalkerProxy(server, stalkerMac, "stb", "handshake");
+        const stalkerToken = handshakeRes?.js?.token;
+        if (!stalkerToken) return res.status(403).send("MAC Blocked");
+        
+        let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
+        let linkRes = await callStalkerProxy(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
+        let streamUrl = linkRes?.js?.cmd;
+        
+        if (!streamUrl) { 
+            linkRes = await callStalkerProxy(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
+            streamUrl = linkRes?.js?.cmd; 
+        }
+        
+        if (streamUrl) { 
+            let finalUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
+            return res.redirect(finalUrl); 
+        }
+        return res.status(404).send("Stream Not Found");
+    } catch(e) { return res.status(500).send("Bridge Error"); }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
