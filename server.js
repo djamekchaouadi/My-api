@@ -6,14 +6,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ⚠️ رابط قاعدة بيانات Firebase الخاص بك
-const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
+const FIREBASE_URL = "https://gamerdz1517-db-default-rtdb.europe-west1.firebasedatabase.app"; 
 
 // 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '5mb' })); 
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 const localCache = new Map();
@@ -239,40 +239,6 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [مسار جديد: جلب حلقات المسلسل لواجهة المشغل]
-app.post('/api/get_series_info', async (req, res) => {
-    const { server, mac, series_id } = req.body;
-    try {
-        let hsRaw = await callStalkerDirect(server, mac, "stb", "handshake", null);
-        let tk = hsRaw?.js?.token;
-        if(!tk) return res.json({success: false, error: "MAC Blocked"});
-
-        let data = await fetchContentStrict(server, mac, "series", ['ALL'], null, tk, `&movie_id=${series_id}&season_id=0&episode_id=0`);
-        let epsObj = {};
-        let seasonIndex = 1;
-
-        if (data.length > 0) {
-            for (let season of data) {
-                let seasonCmd = season.cmd;
-                if (!seasonCmd) continue;
-                let episodesArr = season.series;
-                if (!Array.isArray(episodesArr) || episodesArr.length === 0) continue;
-
-                let sNum = String(season.season || seasonIndex);
-                if (!epsObj[sNum]) epsObj[sNum] = [];
-
-                for (let ep of episodesArr) {
-                    let episodeNum = String(ep);
-                    let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
-                    epsObj[sNum].push({ id: streamIdRaw, title: `الحلقة ${episodeNum}` });
-                }
-                seasonIndex++;
-            }
-        }
-        res.json({ success: true, data: epsObj });
-    } catch(e) { res.json({success: false, error: e.message}); }
-});
-
 // 🚀 مسار المعاينة الذكي الذي يحاكي مسارات التحويل بالضبط (Bypass CORS)
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
@@ -283,25 +249,10 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
+        // 🌟 للأفلام: نستخدم نفس هندسة Xtream المباشرة التي تنجح دائماً
         if (type === 'vod' || type === 'movie') {
             streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
-        } 
-        else if (type === 'series') {
-            // معالجة تشغيل الحلقة للمسلسل
-            let actualId = stream_id; let playToken = "";
-            try {
-                let decodedId = decodeSafeBase64(stream_id);
-                if (decodedId.includes("::::")) actualId = decodedId.split("::::")[0];
-            } catch(e) {}
-            if (actualId.includes("-")) {
-                let idx = actualId.indexOf("-");
-                playToken = actualId.substring(idx + 1);
-                actualId = actualId.substring(0, idx);
-            }
-            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${actualId}.mkv&type=series`;
-            if (playToken) streamUrl += `&play_token=${playToken}`;
-        }
-        else {
+        } else {
             streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
             let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
             if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
@@ -317,7 +268,9 @@ app.get('/proxy_stream', async (req, res) => {
             "Connection": "keep-alive"
         };
         
-        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
+        if (req.headers.range) {
+            reqHeaders["Range"] = req.headers.range;
+        }
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
@@ -328,6 +281,8 @@ app.get('/proxy_stream', async (req, res) => {
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status); 
+        
+        // 🌟 السحر هنا: ترويسات تخطي حماية CORS الكاملة للمشغل
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept-Ranges');
@@ -339,12 +294,18 @@ app.get('/proxy_stream', async (req, res) => {
         });
 
         if (!res.getHeader('Content-Type')) {
-            res.setHeader('Content-Type', (type === 'live' || type === 'itv') ? 'video/mp2t' : 'video/mp4');
+            res.setHeader('Content-Type', (type === 'vod' || type === 'movie') ? 'video/mp4' : 'video/mp2t');
         }
 
         fetchRes.body.pipe(res);
-        fetchRes.body.on('error', (err) => { res.end(); });
-        req.on('close', () => { if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
+
+        fetchRes.body.on('error', (err) => {
+            res.end();
+        });
+
+        req.on('close', () => { 
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); 
+        });
 
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
@@ -607,6 +568,8 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status);
+        
+        // 🌟 السحر هنا: ترويسات تخطي حماية CORS الكاملة للمشغل
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept-Ranges');
