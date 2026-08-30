@@ -13,7 +13,7 @@ process.on('uncaughtException', function (err) { console.error('Caught exception
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '5mb' })); 
+app.use(express.json({ limit: '5mb' })); // تم تقليل الحجم لحماية السيرفر من هجمات DoS
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 const localCache = new Map();
@@ -239,7 +239,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [المسار المحدث بالكامل لواجهة المشغل - يحل مشكلة الـ VOD والـ Live معاً بنسبة 100%]
+// 🚀🚀 المسار المحدث بواجهة المشغل: تطبيق استنتاجك بجعل الفيلم (بث مباشر مجزأ)
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -249,11 +249,11 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
-        // 🌟 للأفلام (VOD): نستخدم الرابط المباشر بنفس الطريقة التي تعمل في تطبيق Xtream
         if (type === 'vod' || type === 'movie') {
-            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
+            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
         } else {
-            // 🌟 للقنوات: نفرض إرجاع صيغة TS
             streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
             let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
             if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
@@ -269,7 +269,6 @@ app.get('/proxy_stream', async (req, res) => {
             "Connection": "keep-alive"
         };
         
-        // 🌟 دعم تمرير الوقت (Seek) لتشغيل الأفلام في المتصفح
         if (req.headers.range) {
             reqHeaders["Range"] = req.headers.range;
         }
@@ -277,25 +276,35 @@ app.get('/proxy_stream', async (req, res) => {
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
             redirect: 'follow',
-            timeout: 0 
+            timeout: 0 // إلغاء التايم أوت حتى لا ينقطع البث المباشر
         });
 
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status); 
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Type');
         
-        // 🌟 هام جداً: إخبار المتصفح بأننا نسمح له بقراءة هذه الترويسات ليعرف طول الفيلم وتعمل الأفلام بصيغة MKV
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-
-        const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+        // 🌟 السحر والتعديل المطلوب هنا: 
+        // نقوم بتمرير جميع الترويسات "ما عدا" Content-Length
+        // هذا سيجبر السيرفر والمتصفح على استخدام (Transfer-Encoding: chunked) وبدء الفيلم فوراً كأنه بث مباشر (Live)
+        const headersToForward = ['content-type', 'content-range', 'accept-ranges'];
         headersToForward.forEach(h => {
             if (fetchRes.headers.has(h)) res.setHeader(h, fetchRes.headers.get(h));
         });
 
+        // 🌟 تمويه الصيغة: المتصفحات تكره الـ MKV. نخدع المتصفح ونخبره أن هذا الفيلم هو MP4 لكي يبدأ التشغيل فوراً
+        let cType = res.getHeader('Content-Type') || '';
+        if (type === 'vod' || type === 'movie') {
+            if (cType.includes('matroska') || cType === '') {
+                res.setHeader('Content-Type', 'video/mp4');
+            }
+        } else {
+            if (!cType) res.setHeader('Content-Type', 'video/mp2t');
+        }
+
         fetchRes.body.pipe(res);
-        
-        // معالجة أخطاء قطع الاتصال حتى لا ينهار السيرفر
+
         fetchRes.body.on('error', (err) => {
             res.end();
         });
@@ -495,7 +504,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 مسار سحب الفيديو (Proxy Pipe) الخاص بتطبيقات Xtream و M3U
+// 🚀 مسار سحب الفيديو لتطبيقات Xtream و M3U (يُبقي الـ Content-Length لتعمل تطبيقات الهاتف بشكل طبيعي)
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
@@ -568,12 +577,18 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
         
+        // هنا نمرر الـ Content-Length لتعمل تطبيقات IPTV بثبات (عكس المتصفح)
         const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
         headersToForward.forEach(h => {
             if (fetchRes.headers.has(h)) res.setHeader(h, fetchRes.headers.get(h));
         });
 
+        if (!res.getHeader('Content-Type')) {
+            res.setHeader('Content-Type', (type === "live" ? 'video/mp2t' : 'video/mp4'));
+        }
+        
         fetchRes.body.pipe(res);
+
         fetchRes.body.on('error', (err) => res.end());
 
         req.on('close', () => {
