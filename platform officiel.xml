@@ -1,0 +1,996 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html>
+<html b:css='false' b:defaultwidgetversion='2' b:layoutsVersion='3' b:responsive='true' b:version='2' expr:dir='data:blog.languageDirection' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+  <meta charset='utf-8'/>
+  <meta content='width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no' name='viewport'/>
+  
+  <title><data:blog.pageTitle/></title>
+  
+  <b:include data='blog' name='all-head-content'/>
+
+  <!-- مكتبات تشغيل الفيديو (MPEG-TS و HLS) -->
+  <script src='https://cdn.jsdelivr.net/npm/hls.js@latest'/>
+  <script src='https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js'/>
+  <link href='https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&amp;family=Orbitron:wght@500;700;900&amp;display=swap' rel='stylesheet'/>
+  <link href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' rel='stylesheet'/>
+
+  <b:skin><![CDATA[
+  /* =============================================================
+     Template Name: GAMERDZ1517 Pro Web App Ready
+     ============================================================= */
+  :root {
+    --bg-dark: #0b0f19;
+    --bg-panel: #0f172a;
+    --accent: #38bdf8;
+    --rgb-1: #ff0055;
+    --rgb-2: #00ffcc;
+    --rgb-3: #cc00ff;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; background: #0b0f19 !important; font-family: 'Cairo', sans-serif; color: #f8fafc; }
+
+  /* 🚀 إخفاء بلوجر بالكامل وعرض تطبيقك كشاشة كاملة عائمة */
+  #gamerdz-root {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(11,15,25,0.65) 0%, rgba(15,23,42,0.55) 100%), url('https://raw.githubusercontent.com/djamekchaouadi/My-api/main/222.jpg') center center / cover no-repeat;
+      z-index: 2147483647; overflow-y: auto; font-family: 'Cairo', sans-serif;
+      color: #f8fafc; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+  }
+
+  #gamerdz-root::-webkit-scrollbar { width: 8px; height: 8px; }
+  #gamerdz-root::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+  #gamerdz-root::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 10px; }
+  #gamerdz-root::-webkit-scrollbar-thumb:hover { background: #0284c7; }
+
+  #app-wrapper { display: flex; flex-direction: column; align-items: center; padding: 20px 15px 40px 15px; box-sizing: border-box; width: 100%; margin: 0 auto; }
+  
+  .top-bar { width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; box-sizing: border-box; flex-wrap: wrap; gap: 15px; }
+  
+  .social-icons { display: flex; gap: 12px; align-items: center; }
+  .social-icons a { color: #94a3b8; width: 32px; height: 32px; display: flex; justify-content: center; align-items: center; transition: all 0.3s ease; background: rgba(255,255,255,0.05); border-radius: 50%; }
+  .social-icons a:hover { color: #ffffff; background: #38bdf8; transform: translateY(-3px); box-shadow: 0 5px 15px rgba(56, 189, 248, 0.4); }
+  .social-icons svg { width: 18px; height: 18px; }
+  
+  .top-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .action-btn-top { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; padding: 6px 15px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s ease; font-family: 'Cairo', sans-serif; text-transform: uppercase; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+  .action-btn-top:hover { background: #38bdf8; color: #0b0f19; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3); transform: scale(1.05); }
+
+  .engine-v1 { background: rgba(139, 92, 246, 0.15) !important; border-color: rgba(139, 92, 246, 0.5) !important; color: #c4b5fd !important; }
+  .engine-v2 { background: rgba(16, 185, 129, 0.15) !important; border-color: rgba(16, 185, 129, 0.5) !important; color: #6ee7b7 !important; }
+
+  .app-container { width: 100%; max-width: 1200px; background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6); box-sizing: border-box; }
+  
+  .header { text-align: center; margin-bottom: 30px; }
+  .header h1 { font-size: clamp(20px, 4vw, 28px); font-weight: 900; margin: 0; color: #ffffff; direction: ltr; letter-spacing: 1px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+  .header h3 { font-size: 14px; margin: 10px 0 0 0; color: #38bdf8; font-weight: 700; letter-spacing: 1px; text-shadow: 0 1px 5px rgba(0,0,0,0.8); }
+
+  .inputs-container { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 25px; }
+  @media (min-width: 850px) { .inputs-container { grid-template-columns: 1fr 1fr; } }
+  
+  .input-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .input-wrapper { position: relative; display: flex; width: 100%; align-items: center; }
+  
+  input[type="text"] { width: 100%; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; color: #f8fafc; padding: 15px 45px 15px 15px; font-size: 14px; font-weight: 700; outline: none; direction: ltr; text-align: left; box-sizing: border-box; transition: all 0.3s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+  input[type="text"]:focus { border-color: #38bdf8; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), inset 0 2px 5px rgba(0,0,0,0.5); }
+  
+  .copy-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .copy-btn:hover { color: #ffffff; background: #38bdf8; border-color: #38bdf8; }
+  .copy-btn svg { width: 15px; height: 15px; }
+
+  button.btn-main { border: none; border-radius: 12px; color: white; cursor: pointer; padding: 15px 10px; font-family: inherit; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+  .btn-title { font-size: 14px; font-weight: 900; letter-spacing: 0.5px; }
+  .btn-desc { font-size: 11px; font-weight: 600; opacity: 0.85; margin-top: 5px; }
+  button.btn-main:active { transform: scale(0.96); }
+  
+  .btn-blue { background: linear-gradient(135deg, rgba(37,99,235,0.9), rgba(59,130,246,0.9)); border: 1px solid rgba(59, 130, 246, 0.4); }
+  .btn-cyan { background: linear-gradient(135deg, rgba(13,148,136,0.9), rgba(20,184,166,0.9)); border: 1px solid rgba(20, 184, 166, 0.4); }
+  .btn-red { background: linear-gradient(135deg, rgba(220,38,38,0.9), rgba(239,68,68,0.9)); border: 1px solid rgba(239, 68, 68, 0.4); }
+  .btn-green { background: linear-gradient(135deg, rgba(22,163,74,0.9), rgba(34,197,94,0.9)); border: 1px solid rgba(34, 197, 94, 0.4); }
+  .btn-dark { background: linear-gradient(135deg, rgba(51,65,85,0.9), rgba(71,85,105,0.9)); border: 1px solid rgba(255, 255, 255, 0.1); }
+  .btn-purple { background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(139,92,246,0.9)); border: 1px solid rgba(139, 92, 246, 0.4); }
+  .btn-orange { background: linear-gradient(135deg, rgba(234,88,12,0.9), rgba(249,115,22,0.9)); border: 1px solid rgba(249, 115, 22, 0.4); }
+  .btn-gold { background: linear-gradient(135deg, rgba(202,138,4,0.9), rgba(234,179,8,0.9)); border: 1px solid rgba(234, 179, 8, 0.4); }
+  .btn-disabled { background: rgba(30,41,59,0.7) !important; color: #64748b !important; cursor: not-allowed !important; border: 1px solid rgba(255,255,255,0.05); box-shadow: none; }
+  
+  button.btn-main:not(.btn-disabled):hover { filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.6); transform: translateY(-2px); }
+
+  .action-buttons { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 30px; }
+  @media (min-width: 500px) { .action-buttons { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1000px) { .action-buttons { grid-template-columns: repeat(4, 1fr); } }
+
+  .selection-boxes { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 30px; direction: rtl; }
+  @media (min-width: 850px) { .selection-boxes { grid-template-columns: repeat(3, 1fr); } }
+  
+  .content-box { background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+  .content-box h4 { margin: 0 0 15px 0; color: #38bdf8; font-size: 15px; font-weight: 800; text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); position: sticky; top: -20px; background: rgba(0,0,0,0.8); z-index: 2; padding-top: 20px; backdrop-filter: blur(5px); }
+  
+  .checkbox-label { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #e2e8f0; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; background: rgba(255,255,255,0.02); border: 1px solid transparent; }
+  .checkbox-label:hover { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #fff; transform: translateX(-3px); }
+  .checkbox-label input { accent-color: #38bdf8; width: 18px; height: 18px; cursor: pointer; }
+
+  .log-wrapper { background: rgba(2, 6, 23, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; height: 280px; display: flex; flex-direction: column; direction: ltr; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); }
+  .log-header { background: rgba(15, 23, 42, 0.7); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .log-header-left { display: flex; align-items: center; gap: 15px; }
+  .mac-dots { display: flex; gap: 6px; } .mac-dots span { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+  .mac-dots .red { background: #ef4444; } .mac-dots .yellow { background: #f59e0b; } .mac-dots .green { background: #10b981; }
+  .log-header-text { font-size: 12px; color: #94a3b8; font-weight: 800; letter-spacing: 1.5px; font-family: 'Consolas', monospace; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  
+  .download-btn { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; border-radius: 8px; padding: 6px 15px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+  .download-btn:hover { background: #10b981; color: #020617; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+  .download-btn svg { width: 14px; height: 14px; fill: currentColor; }
+  
+  .log-content { flex: 1; padding: 15px 20px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.8; font-weight: 600; white-space: pre-wrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  .log-item { padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); }
+  .success-text { color: #10b981; } .error-text { color: #ef4444; } .info-text { color: #38bdf8; } .warn-text { color: #f59e0b; }
+
+  /* نوافذ المودال */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999999; display: none; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+  .modal-overlay.show { display: flex; }
+  .modal-content { background: #0f172a; border-radius: 20px; padding: 30px 20px; width: 100%; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; position: relative;}
+  
+  .ad-modal { max-width: 450px; border: 1px solid rgba(139, 92, 246, 0.5); }
+  .ad-modal h2 { color: #ffffff; font-size: 22px; margin: 0 0 10px 0; font-weight: 900; text-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
+  .ad-modal p { color: #cbd5e1; font-size: 14px; margin: 0 0 25px 0; font-weight: 600; }
+  #ad-space { margin: 0 auto 25px auto; width: 100%; min-height: 250px; background: #000; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+  #btnUnlock { background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #94a3b8; padding: 16px 20px; font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15px; width: 100%; cursor: not-allowed; transition: all 0.3s; margin-top: auto; }
+  #btnUnlock.active { background: linear-gradient(135deg, #6d28d9, #8b5cf6); border-color: transparent; color: #ffffff; cursor: pointer; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4); }
+
+  .warning-modal { max-width: 550px; border: 2px solid #ef4444; box-shadow: 0 10px 40px rgba(239, 68, 68, 0.2); }
+  .warning-modal h2 { color: #ef4444; font-size: 24px; margin: 0 0 15px 0; font-weight: 900; }
+  .warning-modal p { color: #e2e8f0; font-size: 15px; line-height: 1.8; margin: 0 0 25px 0; font-weight: 600; text-align: right; }
+  #btnAcceptWarning { background: linear-gradient(135deg, #16a34a, #22c55e); border: none; border-radius: 12px; color: #fff; padding: 15px 20px; font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15px; width: 100%; cursor: pointer; transition: all 0.3s; }
+
+  /* الشاشة الترحيبية الاحترافية */
+  .welcome-screen-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(11,15,25,0.60) 0%, rgba(2,132,199,0.20) 100%), url('https://raw.githubusercontent.com/djamekchaouadi/My-api/main/222.jpg') center center / cover no-repeat;
+      backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); z-index: 999999999; display: flex; justify-content: center; align-items: center;
+  }
+  .welcome-screen-overlay:not(.show) { display: none; }
+  
+  .welcome-screen-content {
+      background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 24px; padding: 40px 30px; width: 90%; max-width: 500px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(56, 189, 248, 0.1); position: relative; overflow: hidden;
+  }
+
+  .welcome-btn { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #f8fafc; padding: 16px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; text-align: right; position: relative; }
+  .welcome-btn svg { width: 22px; height: 22px; flex-shrink: 0; transition: transform 0.3s ease; }
+  .welcome-btn:hover { color: #fff; }
+
+  .wb-1 { border-right: 4px solid #38bdf8; } .wb-1 svg { fill: #38bdf8; } .wb-1:hover { background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(56, 189, 248, 0.9)); border-color: transparent; box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); transform: translateY(-3px); }
+  .wb-2 { border-right: 4px solid #a855f7; } .wb-2 svg { fill: #a855f7; } .wb-2:hover { background: linear-gradient(135deg, rgba(147, 51, 234, 0.9), rgba(192, 132, 252, 0.9)); border-color: transparent; box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4); transform: translateY(-3px); }
+  .wb-3 { border-right: 4px solid #f97316; } .wb-3 svg { fill: #f97316; } .wb-3:hover { background: linear-gradient(135deg, rgba(234, 88, 12, 0.9), rgba(251, 146, 60, 0.9)); border-color: transparent; box-shadow: 0 10px 25px rgba(249, 115, 22, 0.4); transform: translateY(-3px); }
+  .wb-4 { border-right: 4px solid #10b981; } .wb-4 svg { fill: #10b981; } .wb-4:hover { background: linear-gradient(135deg, rgba(5, 150, 105, 0.9), rgba(52, 211, 153, 0.9)); border-color: transparent; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4); transform: translateY(-3px); }
+
+  /* مودال المشغل السينمائي الشامل */
+  .preview-modal-fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; background: #0b0f19; z-index: 9999999; display: none; flex-direction: column; overflow: hidden; }
+  .preview-modal-fullscreen.show { display: flex; }
+  
+  .preview-header-bar { display: flex; align-items: center; justify-content: space-between; padding: 15px 25px; background: #0f172a; border-bottom: 1px solid rgba(56, 189, 248, 0.3); z-index: 100; flex-shrink: 0; }
+  .btn-back { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); padding: 8px 20px; border-radius: 8px; cursor: pointer; font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 10px; transition: all 0.3s; }
+  .btn-back:hover { background: #ef4444; color: #fff; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); transform: translateX(3px); }
+  .preview-brand { color: #38bdf8; font-weight: 900; font-size: 18px; letter-spacing: 1px; }
+
+  .player-and-tabs-area { flex-shrink: 0; width: 100%; display: flex; flex-direction: column; align-items: center; background: #0b0f19; padding: 15px 20px 10px 20px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 90; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  .player-wrapper { width: 100%; max-width: 1000px; position: relative; background: #000; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(56, 189, 248, 0.15); margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+  
+  #myVideoPlayer { width: 100%; aspect-ratio: 16 / 9; max-height: 60vh; background: #000; outline: none; object-fit: contain; }
+  .video-header-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 15px 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%); display: flex; justify-content: space-between; align-items: flex-start; z-index: 5; pointer-events: none; }
+  .video-title { color: #f8fafc; font-size: 16px; font-weight: 900; text-shadow: 0 2px 5px #000; text-align: right; direction: rtl; max-width: 75%; line-height: 1.4; }
+  .hevc-warning { font-size: 12px; color: #ef4444; font-weight: 800; background: rgba(0,0,0,0.7); padding: 4px 8px; border-radius: 6px; display: none; }
+  
+  .tabs-header { display: flex; justify-content: center; gap: 10px; width: 100%; max-width: 1000px; background: rgba(15, 23, 42, 0.8); border-radius: 12px; padding: 5px; border: 1px solid rgba(255,255,255,0.05); }
+  .tab-btn { flex: 1; background: transparent; border: none; color: #94a3b8; font-size: 15px; font-weight: 800; cursor: pointer; padding: 12px 20px; border-radius: 8px; transition: all 0.3s ease; font-family: 'Cairo', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+  .tab-btn.active { background: #38bdf8; color: #0f172a; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); }
+  
+  .lists-scroll-area { flex: 1; width: 100%; overflow-y: auto; padding: 15px 20px 40px 20px; box-sizing: border-box; background: #0b0f19; }
+  .tab-content { display: none; animation: fadeIn 0.4s ease; width: 100%; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .items-list-container { display: flex; flex-direction: column; gap: 8px; }
+  .item-list-row { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 15px; display: flex; align-items: center; cursor: pointer; transition: all 0.2s ease; direction: rtl; backdrop-filter: blur(5px); justify-content: flex-start;}
+  .item-list-row:hover { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15); transform: translateX(-3px); }
+  
+  .play-icon-box { width: 32px; height: 32px; background: rgba(56, 189, 248, 0.15); border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; transition: all 0.3s; }
+  .item-list-row:hover .play-icon-box { background: #38bdf8; transform: scale(1.1); box-shadow: 0 0 10px rgba(56,189,248,0.5); }
+  .play-icon-box svg { width: 12px; height: 12px; fill: #38bdf8; transition: fill 0.3s; margin-left: -2px; }
+  .item-list-row:hover .play-icon-box svg { fill: #0f172a; }
+  
+  .item-list-row span { font-size: 15px; font-weight: 700; color: #e2e8f0; text-align: right; flex: 1; line-height: 1.4; transition: color 0.3s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 15px;}
+  .item-list-row:hover span { color: #fff; }
+  ]]></b:skin>
+</head>
+
+<body>
+
+<!-- واجهة التطبيق الرئيسية (تظهر بالكامل كطبقة علوية فوق بلوجر) -->
+<div id='gamerdz-root'>
+
+    <!-- الشاشة الترحيبية الاحترافية -->
+    <div class='welcome-screen-overlay show' id='welcome-modal'>
+        <div class='welcome-screen-content'>
+            <div style='position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 100px; height: 100px; background: #38bdf8; filter: blur(70px); opacity: 0.5;'/>
+            
+            <div style='color: #38bdf8; margin-bottom: 20px; position: relative;'>
+                <svg fill='currentColor' viewBox='0 0 640 512' width='60'><path d='M64 64V352H576V64H64zM0 64C0 28.7 28.7 0 64 0H576c35.3 0 64 28.7 64 64V352c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM128 448H512c17.7 0 32 14.3 32 32s-14.3 32-32 32H128c-17.7 0-32-14.3-32-32s14.3-32 32-32z'/></svg>
+            </div>
+            
+            <h2 data-i18n='welcomeTitle' style='color: #fff; font-size: 24px; font-weight: 900; margin: 0 0 10px 0; position: relative;'>مرحبا&#1611; بك في منصة GAMERDZ1517</h2>
+            <p data-i18n='welcomeDesc' style='color: #cbd5e1; font-size: 15px; margin: 0 0 30px 0; font-weight: 600; position: relative;'>حدد الخدمة التي ترغب بها لتخصيص واجهة العمل:</p>
+            
+            <div style='display: flex; flex-direction: column; gap: 12px; position: relative;'>
+                <button class='welcome-btn wb-1' onclick='selectService(1)'>
+                    <svg viewBox='0 0 512 512'><path d='M352 256c0 22.2-1.2 43.6-3.3 64H163.3c-2.2-20.4-3.3-41.8-3.3-64s1.2-43.6 3.3-64H348.7c2.2 20.4 3.3 41.8 3.3 64zm28.8-64H503.9c5.3 20.5 8.1 41.9 8.1 64s-2.8 43.5-8.1 64H380.8c2.1-20.6 3.2-42 3.2-64s-1.1-43.4-3.2-64zm112.6-32H376.7c-10-63.9-29.8-117.4-55.3-151.6c78.3 20.7 142 77.5 171.9 151.6zm-149.1 0H167.7c6.1-36.4 15.5-68.6 27-94.7c10.5-23.6 22.2-40.7 33.5-51.5C239.4 3.2 248.7 0 256 0s16.6 3.2 27.8 13.8c11.3 10.8 23 27.9 33.5 51.5c11.6 26 20.9 58.2 27 94.7zm-209 0H18.6C48.6 85.9 112.2 29.1 190.6 8.4C165.1 42.6 145.3 96.1 135.3 160zM8.1 192H131.2c-2.1 20.6-3.2 42-3.2 64s1.1 43.4 3.2 64H8.1C2.8 299.5 0 278.1 0 256s2.8-43.5 8.1-64zM194.7 446.6c-11.6-26-20.9-58.2-27-94.6H344.3c-6.1 36.4-15.5 68.6-27 94.6c-10.5 23.6-22.2 40.7-33.5 51.5C272.6 508.8 263.3 512 256 512s-16.6-3.2-27.8-13.8c-11.3-10.8-23-27.9-33.5-51.5zM135.3 352c10 63.9 29.8 117.4 55.3 151.6C112.2 482.9 48.6 426.1 18.6 352H135.3zm358.1 0c-30 74.1-93.6 130.9-171.9 151.6c25.5-34.2 45.2-87.7 55.3-151.6H493.4z'/></svg>
+                    <span data-i18n='opt1Title'>الحصول على سيرفرات ستالكر</span>
+                </button>
+                <button class='welcome-btn wb-2' onclick='selectService(2)'>
+                    <svg viewBox='0 0 512 512'><path d='M142.9 142.9c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5c0 0 0 0 0 0H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1C73.2 122 55.6 150.7 44.8 181.4c-5.9 16.7 2.9 34.9 19.5 40.8s34.9-2.9 40.8-19.5c7.7-21.8 20.2-42.3 37.8-59.8zM16 312v7.6 .7V440c0 9.7 5.8 18.5 14.8 22.2s19.3 1.7 26.2-5.2l41.6-41.6c87.6 86.5 228.7 86.2 315.8-1c24.4-24.4 42-53.1 52.9-83.7c5.9-16.7-2.9-34.9-19.5-40.8s-34.9 2.9-40.8 19.5c-7.7 21.8-20.2 42.3-37.8 59.8c-62.2 62.2-162.7 62.5-225.3 1L185 329c6.9-6.9 8.9-17.2 5.2-26.2s-12.5-14.8-22.2-14.8H48.4h-.7H40c-13.3 0-24 10.7-24 24z'/></svg>
+                    <span data-i18n='opt2Title'>تحويل ستالكر إلى اكستريم</span>
+                </button>
+                <button class='welcome-btn wb-3' onclick='selectService(3)'>
+                    <svg viewBox='0 0 384 512'><path d='M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64H160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM216 232V334.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z'/></svg>
+                    <span data-i18n='opt3Title'>تحويل ستالكر إلى ملف M3U</span>
+                </button>
+                <button class='welcome-btn wb-4' onclick='selectService(4)'>
+                    <svg viewBox='0 0 640 512'><path d='M64 64V352H576V64H64zM0 64C0 28.7 28.7 0 64 0H576c35.3 0 64 28.7 64 64V352c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM128 448H512c17.7 0 32 14.3 32 32s-14.3 32-32 32H128c-17.7 0-32-14.3-32-32s14.3-32 32-32zM276.9 146.4c12.1-7.7 27.4-6.9 39.1 2.2l128 100.2c10.8 8.4 17.2 21.5 17.2 35.2s-6.3 26.8-17.2 35.2l-128 100.2c-11.7 9.1-27 10-39.1 2.2s-19.3-20.9-19.3-35.3V181.7c0-14.4 7.2-27.6 19.3-35.3z'/></svg>
+                    <span data-i18n='opt4Title'>مشاهدة القنوات عبر المنصة</span>
+                </button>
+            </div>
+
+            <button class='action-btn-top' id='btnWelcomeLang' style='margin-top: 25px; width: 100%; justify-content: center; padding: 12px; border-radius: 12px; font-size: 15px; color: #fff;'>🌐 FR / AR</button>
+        </div>
+    </div>
+
+    <div id='app-wrapper'>
+        
+        <div class='modal-overlay' id='ad-modal'>
+            <div class='modal-content ad-modal'>
+                <h2 data-i18n='modalTitle' id='txtModalTitle'>جاري تأمين وتشفير البيانات...</h2>
+                <p data-i18n='modalDesc' id='txtModalDesc'>يرجى مشاهدة الإعلان ودعمنا لفك التشفير</p>
+                <div id='ad-space'>
+                  <script>
+                    var atOptions = { &#39;key&#39; : &#39;891e788fef6eb7789a11d3e521bb8697&#39;, &#39;format&#39; : &#39;iframe&#39;, &#39;height&#39; : 600, &#39;width&#39; : 160, &#39;params&#39; : {} };
+                  </script>
+                  <script src='https://forbesresistread.com/891e788fef6eb7789a11d3e521bb8697/invoke.js'/>
+                </div>
+                <button disabled='disabled' id='btnUnlock'><span id='txtBtnUnlock'>انتظر 12 ثواني...</span></button>
+            </div>
+        </div>
+
+        <div class='modal-overlay' id='warning-modal'>
+            <div class='modal-content warning-modal'>
+                <h2 data-i18n='warningTitle'>تنبيه هام جدا&#1611; &#9888;&#65039;</h2>
+                <p data-i18n='warningMsg' id='warningText'>
+                    مرحبا بك عزيزي.<br/><br/>لضمان استمرار هذه الخدمة&#1548; من فضلك <b>لا تقوم بالتحويل وأنت قمت باختيار جميع القنوات والأفلام والمسلسلات</b>.<br/><br/>اختر فقط الباقات التي تستخدمها لكي لا تؤثر على السيرفرات وقاعدة البيانات.<br/>شكرا&#1611; على تفهمك 🥰.
+                </p>
+                <button data-i18n='warningBtn' id='btnAcceptWarning'>موافق&#1548; فهمت ذلك</button>
+            </div>
+        </div>
+
+        <div class='preview-modal-fullscreen' id='preview-modal'>
+            <div class='preview-header-bar'>
+                <div class='preview-brand'>GAMERDZ1517 TV</div>
+                <button class='btn-back' id='btnClosePreview'>
+                    <span data-i18n='backBtn'>العودة</span>
+                    <svg fill='currentColor' viewBox='0 0 448 512' width='14'><path d='M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z'/></svg>
+                </button>
+            </div>
+
+            <!-- المشغل والتبويبات -->
+            <div class='player-and-tabs-area'>
+                <div class='player-wrapper' id='playerWrapper'>
+                    <div class='video-header-overlay'>
+                        <div class='video-title' data-i18n='selectToPlay' id='videoTitle'>اختر قناة أو فيلما&#1611; للتشغيل...</div>
+                        <div class='hevc-warning' id='hevcWarning'>&#9888;&#65039; HEVC Audio Only</div>
+                    </div>
+                    <video autoplay='autoplay' controls='controls' id='myVideoPlayer' playsinline='playsinline'/>
+                </div>
+                
+                <div class='tabs-header'>
+                    <button class='tab-btn active' id='tabBtnLive' onclick='switchTab(&apos;live&apos;)'>
+                        <svg fill='currentColor' viewBox='0 0 640 512' width='18'><path d='M64 64V352H576V64H64zM0 64C0 28.7 28.7 0 64 0H576c35.3 0 64 28.7 64 64V352c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM128 448H512c17.7 0 32 14.3 32 32s-14.3 32-32 32H128c-17.7 0-32-14.3-32-32s14.3-32 32-32z'/></svg>
+                        <span data-i18n='tabLive'>البث المباشر (Live)</span>
+                    </button>
+                    <button class='tab-btn' id='tabBtnVod' onclick='switchTab(&apos;vod&apos;)'>
+                        <svg fill='currentColor' viewBox='0 0 512 512' width='18'><path d='M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zM48 120c0-13.3 10.7-24 24-24H120c13.3 0 24 10.7 24 24s-10.7 24-24 24H72c-13.3 0-24-10.7-24-24zm0 80c0-13.3 10.7-24 24-24H120c13.3 0 24 10.7 24 24s-10.7 24-24 24H72c-13.3 0-24-10.7-24-24zm0 80c0-13.3 10.7-24 24-24H120c13.3 0 24 10.7 24 24s-10.7 24-24 24H72c-13.3 0-24-10.7-24-24zM464 120c0-13.3-10.7-24-24-24H392c-13.3 0-24 10.7-24 24s10.7 24 24 24h48c13.3 0 24-10.7 24-24zm0 80c0-13.3-10.7-24-24-24H392c-13.3 0-24 10.7-24 24s10.7 24 24 24h48c13.3 0 24-10.7 24-24zm0 80c0-13.3-10.7-24-24-24H392c-13.3 0-24 10.7-24 24s10.7 24 24 24h48c13.3 0 24-10.7 24-24zm0 80c0-13.3-10.7-24-24-24H392c-13.3 0-24 10.7-24 24s10.7 24 24 24h48c13.3 0 24-10.7 24-24zM192 144v224c0 17 20.6 25.5 32.6 13.5l112-112c7.5-7.5 7.5-19.6 0-27.1l-112-112c-12-12-32.6-3.5-32.6 13.5z'/></svg>
+                        <span data-i18n='tabVod'>الأفلام (Movies)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- منطقة عرض المحتوى -->
+            <div class='lists-scroll-area' id='previewBodyScroll'>
+                <div class='tab-content active' id='tabContentLive'>
+                    <div class='items-list-container' id='liveItemsList'/>
+                </div>
+                <div class='tab-content' id='tabContentVod'>
+                    <div class='items-list-container' id='vodItemsList'/>
+                </div>
+            </div>
+        </div>
+
+        <div class='top-bar'>
+            <div class='social-icons'>
+                <a href='https://t.me/gamerdz1517tv' target='_blank' title='Telegram'><svg fill='currentColor' viewBox='0 0 496 512'><path d='M248,8C111.033,8,0,119.033,0,256S111.033,504,248,504,496,392.967,496,256,384.967,8,248,8ZM362.952,176.66c-3.732,39.215-19.983,144.406-28.415,191.442-3.565,19.869-10.434,26.6-17.072,27.234-14.475,1.385-25.59-9.336-39.638-18.419-21.964-14.2-34.425-23.111-55.856-37.114-24.238-15.842-8.529-24.582,5.5-39.022,3.676-3.784,67.625-61.94,68.85-67.228.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608,69.142-14.845,10.194-26.894,9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7,18.45-13.7,108.446-47.248,144.628-62.3c68.872-28.647,83.183-33.623,92.511-33.789,2.052-.034,6.639.474,9.61,2.885a10.452,10.452,0,0,1,3.53,6.716A43.765,43.765,0,0,1,362.952,176.66Z'/></svg></a>
+                <a href='#' target='_blank' title='Facebook'><svg fill='currentColor' viewBox='0 0 320 512'><path d='M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z'/></svg></a>
+                <a href='#' target='_blank' title='YouTube'><svg fill='currentColor' viewBox='0 0 576 512'><path d='M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z'/></svg></a>
+            </div>
+            <div class='top-actions'>
+                <button class='action-btn-top' data-i18n='homeBtn' id='btnHome'>🏠 القائمة الرئيسية</button>
+                <button class='action-btn-top engine-v1' id='btnEngine'>&#9881;&#65039; السيرفر: PLAN A</button>
+                <button class='action-btn-top' id='btnLang'>FR / AR</button>
+                <button class='action-btn-top' data-i18n='refreshBtn' id='btnRefresh' onclick='location.reload()'>تحديث</button>
+            </div>
+        </div>
+
+        <div class='app-container'>
+            <div class='header'>
+                <h1 data-i18n='mainTitle'>MAC GENERATOR &amp; SCANNER BY GAMERDZ1517</h1>
+                <h3 data-i18n='subtitle' id='txtSubtitle'>مرحبا&#1611; بكم في منصتنا المتقدمة</h3>
+            </div>
+
+            <div class='inputs-container'>
+                <div class='input-group'>
+                    <button class='btn-main btn-blue' id='btnStationTitle'>
+                        <div class='btn-title' data-i18n='portalTitle' id='lblStationTitle'>البوابة (PORTAL)</div>
+                        <div class='btn-desc' data-i18n='portalDesc' id='lblStationDesc'>موقع السيرفر الخاص بك</div>
+                    </button>
+                    <div class='input-wrapper'>
+                        <input id='txtStation' placeholder='S T A L K E R -*- P O R T A L' type='text'/>
+                        <button class='copy-btn' id='btnCopyUrl' onclick='copyToClipboard(&apos;txtStation&apos;, this)' title='نسخ'><svg fill='currentColor' viewBox='0 0 448 512'><path d='M208 0H332.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128h80v64H64V448H256V416h64v40c0 30.9-25.1 56-56 56H56c-30.9 0-56-25.1-56-56V184c0-30.9 25.1-56 56-56z'/></svg></button>
+                    </div>
+                </div>
+
+                <div class='input-group'>
+                    <button class='btn-main btn-blue' id='btnTimeTitle'>
+                        <div class='btn-title' data-i18n='macTitle' id='lblMacTitle'>الماك (MAC)</div>
+                        <div class='btn-desc' data-i18n='macDesc' id='lblMacDesc'>عنوان الماك أدرس للسيرفر</div>
+                    </button>
+                    <div class='input-wrapper'>
+                        <input id='txtTime' placeholder='00:1a:79:00:00:00' type='text'/>
+                        <button class='copy-btn' id='btnCopyMac' onclick='copyToClipboard(&apos;txtTime&apos;, this)' title='نسخ'><svg fill='currentColor' viewBox='0 0 448 512'><path d='M208 0H332.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128h80v64H64V448H256V416h64v40c0 30.9-25.1 56-56 56H56c-30.9 0-56-25.1-56-56V184c0-30.9 25.1-56 56-56z'/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class='input-group' style='margin-bottom: 25px;'>
+                <button class='btn-main btn-cyan' id='btnClear' style='flex-direction: row; gap: 15px;'>
+                    <div class='btn-title' data-i18n='dbBtn' id='lblDbTitle'>| 1 | فحص قاعدة البيانات</div>
+                    <div class='btn-desc' data-i18n='dbDesc' id='lblDbDesc'>تنزيل السيرفرات المتاحة للمنصة</div>
+                </button>
+                <input id='txtM3U' placeholder='...' readonly='readonly' style='text-align: center;' type='text'/>
+            </div>
+
+            <div class='action-buttons'>
+                <button class='btn-main btn-red' id='btnNext'>
+                    <div class='btn-title' data-i18n='loadBtn' id='lblLoadTitle'>| 2 | تحميل سيرفر</div>
+                    <div class='btn-desc' data-i18n='loadDesc' id='lblLoadDesc'>جلب سيرفر جديد</div>
+                </button>
+                
+                <button class='btn-main btn-green' id='btnScanServer'>
+                    <div class='btn-title' data-i18n='scanBtn' id='lblScanTitle'>| 3 | فحص الجروبات</div>
+                    <div class='btn-desc' data-i18n='scanDesc' id='lblScanDesc'>جلب التصنيفات</div>
+                </button>
+                
+                <button class='btn-main btn-dark' id='btnReplay'>
+                    <div class='btn-title' data-i18n='clearBtn' id='lblClearTitle'>| 4 | مسح الحقول</div>
+                    <div class='btn-desc' data-i18n='clearDesc' id='lblClearDesc'>تنظيف والبدء من جديد</div>
+                </button>
+
+                <button class='btn-main btn-disabled' disabled='disabled' id='btnConvertXtream'>
+                    <div class='btn-title' data-i18n='convertBtn' id='lblConvertTitle'>| 5 | تحويل الحساب</div>
+                    <div class='btn-desc' data-i18n='convertDesc' id='lblConvertDesc'>توليد بيانات الدخول</div>
+                </button>
+                
+                <button class='btn-main btn-disabled' disabled='disabled' id='btnDownloadM3u'>
+                    <div class='btn-title' data-i18n='m3uBtn' id='lblM3uTitle'>| 6 | تحميل M3U</div>
+                    <div class='btn-desc' data-i18n='m3uDesc' id='lblM3uDesc'>تنزيل ملف التشغيل المباشر</div>
+                </button>
+
+                <button class='btn-main btn-disabled' disabled='disabled' id='btnPreviewContent'>
+                    <div class='btn-title' data-i18n='previewBtn' id='lblPreviewTitle'>| 7 | عرض وتجربة القنوات</div>
+                    <div class='btn-desc' data-i18n='previewDesc' id='lblPreviewDesc'>تصفح المحتوى والمشاهدة</div>
+                </button>
+            </div>
+
+            <div class='selection-boxes' id='selectionContainer' style='display:none;'>
+                <div class='content-box'>
+                    <h4 data-i18n='liveCat'>فئات القنوات (Live)</h4>
+                    <div id='liveCategoriesList'/>
+                </div>
+                <div class='content-box'>
+                    <h4 data-i18n='vodCat'>فئات الأفلام (VOD)</h4>
+                    <div id='vodCategoriesList'/>
+                </div>
+                <div class='content-box'>
+                    <h4 data-i18n='seriesCat'>فئات المسلسلات (Series)</h4>
+                    <div id='seriesCategoriesList'/>
+                </div>
+            </div>
+
+            <div class='log-wrapper' id='terminalSection'>
+                <div class='log-header'>
+                    <div class='log-header-left'>
+                        <div class='mac-dots'><span class='dot red'/><span class='dot yellow'/><span class='dot green'/></div>
+                        <div class='log-header-text'>SYSTEM LOG_</div>
+                    </div>
+                    <button class='download-btn' id='btnDownload' title='Save'>
+                        <svg viewBox='0 0 384 512'><path d='M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z'/></svg>
+                        <span data-i18n='saveBtn' id='txtSaveBtn'>حفظ</span>
+                    </button>
+                </div>
+                <div class='log-content' id='logList'>
+                    <div class='log-item info-text'>[*] GAMERDZ1517 System Initialized...</div>
+                    <div class='log-item info-text' id='logWelcome'>[*] النظام جاهز للعمل.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- قسم الوسوم الإجبارية لبلوجر لتجاوز خطأ عدم وجود b:section -->
+<div style='display:none;'>
+    <b:section class='hidden-section' id='hidden-section-required' maxwidgets='1' showaddelement='no'>
+      <b:widget id='HTML999' locked='true' title='Required Section' type='HTML' version='2' visible='false'>
+        <b:widget-settings>
+          <b:widget-setting name='content'/>
+        </b:widget-settings>
+        <b:includable id='main'>
+                <div/>
+            </b:includable>
+      </b:widget>
+    </b:section>
+</div>
+
+<!-- دوائر ووظائف JavaScript للتطبيق -->
+<script>
+    //<![CDATA[
+    let currentEngine = 'V1';
+    const ENGINES = {
+        V1: { url: "https://gamer-dz.onrender.com", name: "PLAN A" },
+        V2: { url: "https://gamerdz1517.onrender.com", name: "PLAN B" } 
+    };
+    
+    const DB_URL = "https://raw.githubusercontent.com/djamekchaouadi/SERVER/main/1.txt";
+    const ADSTERRA_DIRECT_LINK = "https://forbesresistread.com/g1e0hxpa2?key=7d7011dbeba839707ae96752413ee4d8";
+
+    let loadServerClickCount = 0;
+    let scanClickCount = 0;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+
+    function playSound(type) {
+        try {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            if (type === 'welcome') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); 
+                osc.frequency.setValueAtTime(659.25, now + 0.1); 
+                osc.frequency.setValueAtTime(783.99, now + 0.2); 
+                osc.frequency.setValueAtTime(1046.50, now + 0.3); 
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                osc.start(now);
+                osc.stop(now + 0.8);
+            } else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'success') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(880, now); 
+                osc.frequency.setValueAtTime(1108.73, now + 0.15); 
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        } catch (e) { console.log('Audio not supported'); }
+    }
+
+    function selectService(option) {
+        playSound('click');
+        document.getElementById('welcome-modal').classList.remove('show');
+        
+        let btnConvert = document.getElementById('btnConvertXtream');
+        let btnM3u = document.getElementById('btnDownloadM3u');
+        
+        btnConvert.style.display = 'none';
+        btnM3u.style.display = 'none';
+        
+        if (option === 2) {
+            btnConvert.style.display = 'flex';
+        } else if (option === 3) {
+            btnM3u.style.display = 'flex';
+        }
+    }
+
+    document.getElementById('btnHome').addEventListener('click', () => {
+        playSound('click');
+        document.getElementById('welcome-modal').classList.add('show');
+    });
+
+    function triggerHiddenAd() {
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        iframe.style.width = '0px';
+        iframe.style.height = '0px';
+        iframe.style.border = 'none';
+        iframe.style.display = 'none';
+        iframe.src = ADSTERRA_DIRECT_LINK;
+        document.body.appendChild(iframe);
+        
+        setTimeout(() => {
+            if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+            }
+        }, 10000);
+    }
+
+    let lastAdTime = 0;
+    document.body.addEventListener('click', () => {
+        let now = Date.now();
+        if (now - lastAdTime > 20000) { 
+            triggerHiddenAd();
+            lastAdTime = now;
+        }
+    });
+
+    function getApiBase() { return ENGINES[currentEngine].url; }
+
+    function encodeSafeBase64(str) {
+        return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function escapeHtml(unsafe) {
+        return (unsafe || '').toString()
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
+    const dict = {
+        ar: { 
+            homeBtn: "🏠 القائمة الرئيسية",
+            welcomeTitle: "مرحباً بك في منصة GAMERDZ1517", welcomeDesc: "حدد الخدمة التي ترغب بها لتخصيص واجهة العمل:",
+            opt1Title: "الحصول على سيرفرات ستالكر", opt2Title: "تحويل ستالكر إلى اكستريم", opt3Title: "تحويل ستالكر إلى ملف M3U", opt4Title: "مشاهدة القنوات عبر المنصة",
+            mainTitle: "MAC GENERATOR & SCANNER BY GAMERDZ1517", subtitle: "مرحباً بكم في منصتنا المتقدمة", refreshBtn: "تحديث",
+            portalTitle: "البوابة (PORTAL)", portalDesc: "موقع السيرفر الخاص بك", macTitle: "الماك (MAC)", macDesc: "عنوان الماك أدرس للسيرفر",
+            dbBtn: "| 1 | فحص قاعدة البيانات", dbDesc: "تنزيل السيرفرات المتاحة للمنصة", loadBtn: "| 2 | تحميل سيرفر", loadDesc: "جلب سيرفر جديد",
+            scanBtn: "| 3 | فحص الجروبات", scanDesc: "جلب التصنيفات", clearBtn: "| 4 | مسح الحقول", clearDesc: "تنظيف والبدء من جديد",
+            convertBtn: "| 5 | تحويل الحساب", convertDesc: "توليد بيانات الدخول", liveCat: "فئات القنوات (Live)", vodCat: "فئات الأفلام (VOD)", seriesCat: "فئات المسلسلات (Series)",
+            m3uBtn: "| 6 | تحميل M3U", m3uDesc: "تنزيل ملف التشغيل المباشر",
+            previewBtn: "| 7 | عرض وتجربة القنوات", previewDesc: "تصفح المحتوى والمشاهدة",
+            tabLive: "البث المباشر (Live)", tabVod: "الأفلام (Movies)",
+            backBtn: "العودة", selectToPlay: "اختر قناة أو فيلماً للتشغيل...",
+            saveBtn: "حفظ",
+            warningTitle: "تنبيه هام جداً ⚠️",
+            warningMsg: "مرحبا بك عزيزي.<br/><br/>لضمان استمرار هذه الخدمة، من فضلك <b>لا تقوم بالتحويل وأنت قمت باختيار جميع القنوات والأفلام والمسلسلات</b>.<br/><br/>اختر فقط الباقات التي تستخدمها لكي لا تؤثر على السيرفرات وقاعدة البيانات.<br/>شكراً على تفهمك 🥰.",
+            warningBtn: "موافق، فهمت ذلك",
+            errAllSelected: "[خطأ] لا يمكن تحويل كل شيء! رجاءاً اختر فقط الباقات التي تريدها 🥰.",
+            modalTitle: "جاري تأمين وتشفير البيانات...", modalDesc: "يرجى مشاهدة الإعلان ودعمنا لفك التشفير",
+            modalWait: "انتظر {s} ثواني...", modalUnlock: "فك التشفير وإظهار البيانات",
+            m3uModalUnlock: "تحميل الملف الآن 📥", msgM3uDownloading: "[نجاح] تم فتح صفحة التحميل. سيبدأ التنزيل تلقائياً!",
+            logCleared: "[*] تم تنظيف واجهة العمليات.", msgDbConnecting: "جاري الاتصال بقاعدة بيانات GAMERDZ1517...", msgDbFound: "تم العثور على: {count} سيرفر", 
+            msgDbSuccess: "[نجاح] تم تحميل {count} سيرفر في الذاكرة.", msgDbError: "[خطأ] يرجى التحقق من الاتصال بقاعدة البيانات.", msgLoadError: "[خطأ] الرجاء فحص قاعدة البيانات أولاً.", 
+            msgLoading: "جارِ تهيئة السيرفر...", msgLoadRemain: "المتبقي: {count} سيرفر", msgLoadSuccess: "تم جلب البوابة:", msgUrlInvalid: "[خطأ] الرابط غير صالح! يجب أن يبدأ بـ http", 
+            msgScanConnecting: "جاري الفحص عبر محرك السحب...", msgScanFailed: "[تنبيه] السيرفر لا يستجيب أو الماك محظور.", downloadEmpty: "لا توجد سيرفرات للتحميل!", downloadSuccess: "[نجاح] تم تحميل {count} سيرفر بنجاح!",
+            errNoSelection: "[تنبيه] يرجى اختيار فئة واحدة على الأقل!", errGen: "[خطأ] تعذر الاتصال بالسيرفر المختار!", msgGenWait: "جاري تأمين الحساب وتوليد كلمة المرور...",
+            msgReady: "[تنبيه] انسخ البيانات وضعها في تطبيقك!"
+        },
+        fr: { 
+            homeBtn: "🏠 Menu Principal",
+            welcomeTitle: "Bienvenue sur GAMERDZ1517", welcomeDesc: "Choisissez le service souhaité pour commencer :",
+            opt1Title: "Obtenir des serveurs Stalker", opt2Title: "Convertir Stalker en Xtream", opt3Title: "Convertir Stalker en fichier M3U", opt4Title: "Regarder la TV via la plateforme",
+            mainTitle: "GÉNÉRATEUR & SCANNER MAC PAR GAMERDZ1517", subtitle: "BIENVENUE SUR NOTRE PLATEFORME AVANCÉE", refreshBtn: "Actualiser",
+            portalTitle: "PORTAIL (URL)", portalDesc: "L'adresse de votre serveur", macTitle: "ADRESSE MAC", macDesc: "L'adresse MAC du serveur",
+            dbBtn: "| 1 | Vérifier la Base", dbDesc: "Télécharger les serveurs disponibles", loadBtn: "| 2 | Charger Serveur", loadDesc: "Récupérer un nouveau serveur",
+            scanBtn: "| 3 | Scanner Groupes", scanDesc: "Récupérer les catégories", clearBtn: "| 4 | Tout Effacer", clearDesc: "Nettoyer l'écran",
+            convertBtn: "| 5 | Convertir Compte", convertDesc: "Générer les nouveaux accès", liveCat: "Catégories Direct (Live)", vodCat: "Catégories Films (VOD)", seriesCat: "Catégories Séries (Series)",
+            m3uBtn: "| 6 | Télécharger M3U", m3uDesc: "Fichier de lecture direct",
+            previewBtn: "| 7 | Aperçu du Contenu", previewDesc: "Parcourir et Regarder",
+            tabLive: "En Direct (Live)", tabVod: "Films (Movies)",
+            backBtn: "Retour", selectToPlay: "Sélectionnez une chaîne ou un film...",
+            saveBtn: "Enregistrer",
+            warningTitle: "AVERTISSEMENT IMPORTANT ⚠️",
+            warningMsg: "Bienvenue cher utilisateur.<br/><br/>Veuillez ne pas tout sélectionner lors de la conversion pour préserver les serveurs.<br/><br/>Merci pour votre compréhension 🥰.",
+            warningBtn: "D'accord, j'ai compris",
+            errAllSelected: "[Erreur] Impossible de tout convertir ! Veuillez choisir uniquement les bouquets souhaités 🥰.",
+            modalTitle: "Sécurisation des données en cours...", modalDesc: "Veuillez visionner l'annonce pour soutenir le déverrouillage",
+            modalWait: "Patientez {s} secondes...", modalUnlock: "Déverrouiller et Afficher",
+            m3uModalUnlock: "Télécharger le fichier 📥", msgM3uDownloading: "[Succès] La page de téléchargement est ouverte.",
+            logCleared: "[*] L'interface a été nettoyée.", msgDbConnecting: "Connexion en cours...", msgDbFound: "{count} serveurs trouvés", 
+            msgDbSuccess: "[Succès] {count} serveurs chargés.", msgDbError: "[Erreur] Vérifiez la connexion.", msgLoadError: "[Erreur] Vérifiez d'abord la base.", 
+            msgLoading: "Préparation...", msgLoadRemain: "Restant : {count}", msgLoadSuccess: "Portail récupéré :", msgUrlInvalid: "[Erreur] Lien invalide !", 
+            msgScanConnecting: "Scan des catégories...", msgScanFailed: "[Attention] Le serveur ne répond pas.", downloadEmpty: "Aucun serveur !", downloadSuccess: "[Succès] Téléchargement réussi !",
+            errNoSelection: "[Attention] Sélectionnez au moins une catégorie !", errGen: "[Erreur] Connexion échouée !", msgGenWait: "Génération en cours...",
+            msgReady: "[Attention] Données générées avec succès !"
+        }
+    };
+    
+    let currentLang = 'ar';
+    let currentActionType = ''; 
+
+    function applyTranslations() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if(dict[currentLang][key]) {
+                if(el.tagName === 'INPUT' && el.type === 'text') el.placeholder = dict[currentLang][key];
+                else el.innerHTML = dict[currentLang][key];
+            }
+        });
+    }
+
+    function toggleLanguage() {
+        playSound('click');
+        currentLang = currentLang === 'ar' ? 'fr' : 'ar';
+        document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        applyTranslations();
+        addLog(currentLang === 'ar' ? "تم تغيير اللغة إلى العربية." : "Langue changée en Français.", "info");
+    }
+
+    document.getElementById('btnLang').addEventListener('click', toggleLanguage);
+    document.getElementById('btnWelcomeLang').addEventListener('click', toggleLanguage);
+
+    document.getElementById('btnEngine').addEventListener('click', () => {
+        let btn = document.getElementById('btnEngine');
+        if (currentEngine === 'V1') {
+            currentEngine = 'V2';
+            btn.className = "action-btn-top engine-v2";
+            btn.innerHTML = `⚙️ السيرفر: ${ENGINES.V2.name}`;
+        } else {
+            currentEngine = 'V1';
+            btn.className = "action-btn-top engine-v1";
+            btn.innerHTML = `⚙️ السيرفر: ${ENGINES.V1.name}`;
+        }
+        addLog(`[*] تم التبديل إلى: ${ENGINES[currentEngine].name}`, "info");
+    });
+
+    function addLog(message, type = 'normal') {
+        const div = document.createElement('div'); div.className = 'log-item';
+        if(type === 'success') div.classList.add('success-text'); else if(type === 'error') div.classList.add('error-text'); else if(type === 'warn') div.classList.add('warn-text'); else if(type === 'info') div.classList.add('info-text');
+        div.innerHTML = `> ${message}`; document.getElementById('logList').appendChild(div); document.getElementById('logList').scrollTop = document.getElementById('logList').scrollHeight;
+    }
+
+    let loadedAccounts = []; let successfulServers = []; let scannedCategories = { live: [], vod: [], series: [] }; let pendingCredentials = {};
+
+    window.copyToClipboard = function(elementId, btnElement) {
+        const textToCopy = document.getElementById(elementId).value;
+        if (!textToCopy) return; navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalIcon = btnElement.innerHTML;
+            btnElement.innerHTML = `<svg viewBox="0 0 448 512" fill="currentColor"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>`;
+            btnElement.style.color = "#10b981"; setTimeout(() => { btnElement.innerHTML = originalIcon; btnElement.style.color = "#cbd5e1"; }, 1500);
+        });
+    }
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+        document.getElementById('warning-modal').classList.add('show');
+    });
+
+    document.getElementById('btnAcceptWarning').addEventListener('click', async () => {
+        document.getElementById('warning-modal').classList.remove('show');
+        
+        addLog(dict[currentLang].msgDbConnecting, "info"); loadedAccounts = [];
+        try {
+            const response = await fetch(`${DB_URL}?t=${Date.now()}`);
+            if (!response.ok) throw new Error("Network Error");
+            const lines = (await response.text()).split(/\r?\n/);
+            let panel = "";
+            for (let line of lines) { 
+                line = line.trim(); 
+                if (line.startsWith("PANEL")) panel = line.replace("PANEL", "").trim(); 
+                else if (line.startsWith("MAC")) { 
+                    let mac = line.replace("MAC", "").trim(); 
+                    if (panel && mac) loadedAccounts.push({ panel, mac }); 
+                } 
+            }
+            if(loadedAccounts.length > 0) { 
+                playSound('welcome'); 
+                document.getElementById('txtM3U').value = dict[currentLang].msgDbFound.replace('{count}', loadedAccounts.length); 
+                addLog(dict[currentLang].msgDbSuccess.replace('{count}', loadedAccounts.length), "success"); 
+            } else throw new Error();
+        } catch (error) { 
+            playSound('error'); 
+            addLog(dict[currentLang].msgDbError, "error"); 
+        }
+    });
+
+    document.getElementById('btnNext').addEventListener('click', () => {
+        playSound('click'); 
+        if (loadedAccounts.length === 0) { addLog(dict[currentLang].msgLoadError, "error"); return; }
+        
+        loadServerClickCount++;
+        if (loadServerClickCount % 3 === 0) { window.open(ADSTERRA_DIRECT_LINK, '_blank'); }
+
+        const item = loadedAccounts.shift();
+        document.getElementById('txtStation').value = item.panel; document.getElementById('txtTime').value = item.mac;
+        document.getElementById('txtM3U').value = dict[currentLang].msgLoadRemain.replace('{count}', loadedAccounts.length);
+        addLog(`${dict[currentLang].msgLoadSuccess} <br/><span style="color:#e2e8f0;" dir="ltr">${item.panel}</span>`, "info");
+        disableActionButtons();
+    });
+
+    document.getElementById('btnReplay').addEventListener('click', () => {
+        playSound('click'); 
+        document.getElementById('txtStation').value = ''; document.getElementById('txtTime').value = ''; document.getElementById('txtM3U').value = '';
+        addLog(dict[currentLang].logCleared, "info");
+        disableActionButtons();
+    });
+
+    function disableActionButtons() {
+        document.getElementById('selectionContainer').style.display = 'none'; 
+        document.getElementById('btnConvertXtream').disabled = true; document.getElementById('btnConvertXtream').classList.add('btn-disabled');
+        document.getElementById('btnDownloadM3u').disabled = true; document.getElementById('btnDownloadM3u').classList.add('btn-disabled');
+        document.getElementById('btnPreviewContent').disabled = true; document.getElementById('btnPreviewContent').classList.add('btn-disabled');
+    }
+
+    document.getElementById('btnScanServer').addEventListener('click', async () => {
+        let server = document.getElementById('txtStation').value.trim(); const mac = document.getElementById('txtTime').value.trim();
+        if(!server.startsWith("http") || !mac) { playSound('error'); addLog(dict[currentLang].msgUrlInvalid, "error"); return; }
+        server = server.replace(/\/c\/?$/i, '').replace(/\/$/i, '');
+        
+        scanClickCount++;
+        if (scanClickCount % 5 === 0) { window.open(ADSTERRA_DIRECT_LINK, '_blank'); }
+
+        addLog(dict[currentLang].msgScanConnecting, "info");
+        try {
+            let scanUrl = `${getApiBase()}/api/scan?server=${encodeURIComponent(server)}&mac=${encodeURIComponent(mac)}`;
+            const res = await fetch(scanUrl);
+            const data = await res.json();
+            if(data.error || !data.success) throw new Error(data.error || dict[currentLang].msgScanFailed);
+
+            scannedCategories = data.categories; 
+            renderCategoryBoxes();
+            document.getElementById('selectionContainer').style.display = 'grid';
+            
+            let btnConv = document.getElementById('btnConvertXtream'); btnConv.disabled = false; btnConv.classList.remove('btn-disabled'); btnConv.classList.add('btn-purple');
+            let btnM3u = document.getElementById('btnDownloadM3u'); btnM3u.disabled = false; btnM3u.classList.remove('btn-disabled'); btnM3u.classList.add('btn-orange');
+            let btnPrev = document.getElementById('btnPreviewContent'); btnPrev.disabled = false; btnPrev.classList.remove('btn-disabled'); btnPrev.classList.add('btn-gold');
+            
+            successfulServers.push(`PORTAL: ${server}\nMAC: ${mac}`);
+            playSound('success'); 
+            addLog(currentLang === 'ar' ? "[نجاح] تم الفحص! حدد الجروبات المطلوبة." : "[Succès] Scan terminé !", "success");
+        } catch(e) { playSound('error'); addLog(dict[currentLang].msgScanFailed, "error"); }
+    });
+
+    function renderCategoryBoxes() {
+        const renderList = (items, containerId, type) => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; 
+            items.forEach(cat => { container.innerHTML += `<label class="checkbox-label"><input type="checkbox" name="cat_${type}" value="${cat.id}"/> ${cat.title}</label>`; });
+        };
+        renderList(scannedCategories.live, 'liveCategoriesList', 'live'); 
+        renderList(scannedCategories.vod, 'vodCategoriesList', 'vod'); 
+        renderList(scannedCategories.series, 'seriesCategoriesList', 'series');
+    }
+
+    async function getSelectedData() {
+        let server = document.getElementById('txtStation').value.trim().replace(/\/c\/?$/i, '').replace(/\/$/i, '');
+        let mac = document.getElementById('txtTime').value.trim();
+
+        let liveCb = document.querySelectorAll('input[name="cat_live"]');
+        let selectedLive = Array.from(liveCb).filter(cb => cb.checked).map(cb => cb.value);
+
+        let vodCb = document.querySelectorAll('input[name="cat_vod"]');
+        let selectedVod = Array.from(vodCb).filter(cb => cb.checked).map(cb => cb.value);
+
+        let seriesCb = document.querySelectorAll('input[name="cat_series"]');
+        let selectedSeries = Array.from(seriesCb).filter(cb => cb.checked).map(cb => cb.value);
+
+        let totalAvailable = liveCb.length + vodCb.length + seriesCb.length;
+        let totalSelected = selectedLive.length + selectedVod.length + selectedSeries.length;
+
+        if(totalSelected === 0) { addLog(dict[currentLang].errNoSelection, "warn"); return null; }
+        if(totalAvailable > 0 && totalSelected === totalAvailable) { addLog(dict[currentLang].errAllSelected, "error"); return null; }
+
+        return { server, mac, l: selectedLive, v: selectedVod, s: selectedSeries };
+    }
+
+    async function generateAccountData() {
+        let sd = await getSelectedData();
+        if(!sd) return false;
+
+        addLog(dict[currentLang].msgGenWait, "info");
+        try {
+            const res = await fetch(`${getApiBase()}/create_account`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mac: sd.mac, server: sd.server, selections: { l: sd.l, v: sd.v, s: sd.s } })
+            });
+            const data = await res.json();
+            if (data.success) {
+                pendingCredentials = { mac: sd.mac, xtreamPassword: data.password, server: sd.server, selections: { l: sd.l, v: sd.v, s: sd.s } };
+                return true;
+            } else { addLog(data.error, "error"); return false; }
+        } catch (e) { addLog(dict[currentLang].errGen, "error"); return false; }
+    }
+
+    let adInterval;
+    function startAdModal() {
+        document.getElementById('ad-modal').classList.add('show');
+        document.getElementById('btnUnlock').disabled = true; 
+        document.getElementById('btnUnlock').classList.remove('active');
+        let seconds = 12; 
+        document.getElementById('txtBtnUnlock').innerHTML = dict[currentLang].modalWait.replace('{s}', seconds);
+
+        clearInterval(adInterval);
+        adInterval = setInterval(() => {
+            seconds--; 
+            document.getElementById('txtBtnUnlock').innerHTML = dict[currentLang].modalWait.replace('{s}', seconds);
+            if(seconds <= 0) {
+                clearInterval(adInterval); 
+                document.getElementById('btnUnlock').disabled = false; 
+                document.getElementById('btnUnlock').classList.add('active');
+                playSound('success'); 
+                if (currentActionType === 'm3u') document.getElementById('txtBtnUnlock').innerHTML = dict[currentLang].m3uModalUnlock;
+                else document.getElementById('txtBtnUnlock').innerHTML = dict[currentLang].modalUnlock;
+            }
+        }, 1000);
+    }
+
+    document.getElementById('btnConvertXtream').addEventListener('click', async () => {
+        playSound('click');
+        currentActionType = 'xtream'; let success = await generateAccountData(); if(success) startAdModal();
+    });
+
+    document.getElementById('btnDownloadM3u').addEventListener('click', async () => {
+        playSound('click');
+        currentActionType = 'm3u'; let success = await generateAccountData(); if(success) startAdModal();
+    });
+
+    document.getElementById('btnUnlock').addEventListener('click', () => {
+        playSound('click');
+        if (currentActionType === 'xtream') {
+            window.open(ADSTERRA_DIRECT_LINK, '_blank'); 
+            document.getElementById('ad-modal').classList.remove('show');
+            addLog("====== XTREAM CREDENTIALS ======", "info");
+            addLog(`USERNAME: ${pendingCredentials.mac}`, "success");
+            addLog(`PASSWORD: ${pendingCredentials.xtreamPassword}`, "success");
+            addLog(`URL: ${getApiBase().replace("https://", "http://")}`, "success");
+            addLog(dict[currentLang].msgReady, "warn");
+        } else if (currentActionType === 'm3u') {
+            let rawData = JSON.stringify({ mac: pendingCredentials.mac, server: pendingCredentials.server, selections: pendingCredentials.selections });
+            let encodedData = encodeSafeBase64(rawData);
+            const downloadUrl = `${getApiBase()}/get.php?username=${pendingCredentials.mac}&password=${pendingCredentials.xtreamPassword}&type=m3u_plus&data=${encodedData}`;
+            window.open(downloadUrl, '_blank'); 
+            addLog(dict[currentLang].msgM3uDownloading, "success");
+            document.getElementById('ad-modal').classList.remove('show');
+        }
+    });
+
+    window.switchTab = function(tabName) {
+        playSound('click');
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        if(tabName === 'live') {
+            document.getElementById('tabBtnLive').classList.add('active');
+            document.getElementById('tabContentLive').classList.add('active');
+        } else {
+            document.getElementById('tabBtnVod').classList.add('active');
+            document.getElementById('tabContentVod').classList.add('active');
+        }
+    };
+
+    document.getElementById('btnPreviewContent').addEventListener('click', async () => {
+        playSound('click');
+        let sd = await getSelectedData();
+        if(!sd) return;
+        
+        document.getElementById('preview-modal').classList.add('show');
+        switchTab('live');
+        document.getElementById('liveItemsList').innerHTML = '<span style="color:#f59e0b; padding:15px; text-align:center; display:block;">جاري التحميل...</span>';
+        document.getElementById('vodItemsList').innerHTML = '<span style="color:#f59e0b; padding:15px; text-align:center; display:block;">جاري التحميل...</span>';
+
+        const playIconSvg = `<div class="play-icon-box"><svg viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></div>`;
+
+        if(sd.l.length > 0) {
+            fetch(`${getApiBase()}/api/get_items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ server: sd.server, mac: sd.mac, type: "itv", selectedCats: sd.l }) })
+            .then(r => r.json()).then(res => {
+                if(res.success && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(item => {
+                        let safeName = escapeHtml(item.name);
+                        let jsSafeName = safeName.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+                        html += `<div class="item-list-row" onclick="playVideo('${sd.server}', '${sd.mac}', '${item.id}', 'itv', '${jsSafeName}')">${playIconSvg}<span>${safeName}</span></div>`;
+                    });
+                    document.getElementById('liveItemsList').innerHTML = html;
+                } else document.getElementById('liveItemsList').innerHTML = '<span style="padding:15px; color:#ef4444; text-align:center; display:block;">لا يوجد محتوى.</span>';
+            });
+        }
+
+        if(sd.v.length > 0) {
+            fetch(`${getApiBase()}/api/get_items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ server: sd.server, mac: sd.mac, type: "vod", selectedCats: sd.v }) })
+            .then(r => r.json()).then(res => {
+                if(res.success && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(item => {
+                        let safeName = escapeHtml(item.name);
+                        let jsSafeName = safeName.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+                        html += `<div class="item-list-row" onclick="playVideo('${sd.server}', '${sd.mac}', '${item.id}', 'vod', '${jsSafeName}')">${playIconSvg}<span>${safeName}</span></div>`;
+                    });
+                    document.getElementById('vodItemsList').innerHTML = html;
+                } else document.getElementById('vodItemsList').innerHTML = '<span style="padding:15px; color:#ef4444; text-align:center; display:block;">لا يوجد محتوى.</span>';
+            });
+        }
+    });
+
+    let mpegtsPlayer = null;
+    let hlsPlayer = null;
+
+    window.playVideo = function(server, mac, streamId, type, name) {
+        playSound('click');
+        document.getElementById('videoTitle').innerText = name;
+        let proxyUrl = `${getApiBase()}/proxy_stream?server=${encodeURIComponent(server)}&mac=${encodeURIComponent(mac)}&stream_id=${streamId}&type=${type}`;
+        let video = document.getElementById('myVideoPlayer');
+        let hevcWarning = document.getElementById('hevcWarning');
+        
+        if (name.toUpperCase().includes('HEVC')) { hevcWarning.style.display = 'block'; } else { hevcWarning.style.display = 'none'; }
+        cleanupPlayers();
+
+        if (mpegts.getFeatureList().mseLivePlayback) {
+            mpegtsPlayer = mpegts.createPlayer({ type: type === 'vod' ? 'mp4' : 'm2ts', isLive: type === 'itv', url: proxyUrl });
+            mpegtsPlayer.attachMediaElement(video);
+            mpegtsPlayer.load();
+            mpegtsPlayer.play().catch(e => { fallbackToHLS(proxyUrl, video); });
+        } else {
+            fallbackToHLS(proxyUrl, video);
+        }
+    };
+
+    function fallbackToHLS(url, video) {
+        if (Hls.isSupported()) {
+            hlsPlayer = new Hls();
+            hlsPlayer.loadSource(url);
+            hlsPlayer.attachMedia(video);
+            hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
+        } else {
+            video.src = url;
+            video.play();
+        }
+    }
+
+    function cleanupPlayers() {
+        let video = document.getElementById('myVideoPlayer');
+        if (mpegtsPlayer) { mpegtsPlayer.pause(); mpegtsPlayer.unload(); mpegtsPlayer.detachMediaElement(); mpegtsPlayer.destroy(); mpegtsPlayer = null; }
+        if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
+        video.pause(); video.removeAttribute('src'); video.load();
+    }
+
+    document.getElementById('btnClosePreview').addEventListener('click', () => {
+        playSound('click');
+        document.getElementById('preview-modal').classList.remove('show');
+        cleanupPlayers();
+    });
+
+    applyTranslations();
+    //]]>
+</script>
+
+</body>
+</html>
