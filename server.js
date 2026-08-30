@@ -5,10 +5,10 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ⚠️ ضع رابط قاعدة بيانات Firebase الخاص بك هنا 
+// ⚠️ رابط قاعدة بيانات Firebase الخاص بك
 const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
-// 🛡️ حماية سيرفر رندر من الانهيار
+// 🛡️ حماية سيرفر رندر من الانهيار التام
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
@@ -16,6 +16,7 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// 🚀 نظام التخزين المؤقت (Cache) لتقليل استهلاك Firebase
 const localCache = new Map();
 
 async function getAuthDataFromFirebase(password) {
@@ -52,7 +53,21 @@ function isAdultContent(name) {
     return /porn|xxx|adult|18\+|erotic|sex|adults/i.test(name.toLowerCase());
 }
 
-// 🚀 المعالج الذكي لمسارات الأيقونات (لإظهار اللوجو الحقيقي في M3U و Xtream)
+function safeFallback(action) {
+    let timeNow = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    if (action === "") {
+        return {
+            user_info: { username: "GAMERDZ", password: "", message: "Unauthorized", auth: 0, status: "Inactive", exp_date: "0", is_trial: "0", active_cons: "0", max_connections: "1000", created_at: "0", allowed_output_formats: ["m3u8", "ts", "rtmp", "mkv", "mp4"] },
+            server_info: { url: "", port: "80", https_port: "443", server_protocol: "http", timezone: "Africa/Algiers", version: "2.9.0" }
+        };
+    } else if (action === "get_series_info") {
+        return { seasons: [], episodes: {}, info: { name: "Not Found", cover: "", plot: "", cast: "", director: "", genre: "", releaseDate: "", rating: "5", rating_5based: 5.0, backdrop_path: [] } };
+    } else if (action === "get_short_epg" || action === "get_simple_data_table") {
+        return { epg_listings: [] };
+    } else return [];
+}
+
+// 🚀 المعالج الذكي لمسارات الأيقونات
 function getRealLogo(serverUrl, logoPath, type) {
     if (!logoPath) return "";
     let url = String(logoPath).trim();
@@ -70,20 +85,7 @@ function getRealLogo(serverUrl, logoPath, type) {
     }
 }
 
-function safeFallback(action) {
-    let timeNow = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    if (action === "") {
-        return {
-            user_info: { username: "GAMERDZ", password: "", message: "Unauthorized", auth: 0, status: "Inactive", exp_date: "0", is_trial: "0", active_cons: "0", max_connections: "1000", created_at: "0", allowed_output_formats: ["m3u8", "ts", "rtmp", "mkv", "mp4"] },
-            server_info: { url: "", port: "80", https_port: "443", server_protocol: "http", timezone: "Africa/Algiers", version: "2.9.0" }
-        };
-    } else if (action === "get_series_info") {
-        return { seasons: [], episodes: {}, info: { name: "Not Found", cover: "", plot: "", cast: "", director: "", genre: "", releaseDate: "", rating: "5", rating_5based: 5.0, backdrop_path: [] } };
-    } else if (action === "get_short_epg" || action === "get_simple_data_table") {
-        return { epg_listings: [] };
-    } else return [];
-}
-
+// 🚀 الاتصال المباشر بسيرفرات Stalker من Render 
 async function callStalkerDirect(serverUrl, macAddress, stalkerType, stalkerAction, token = null) {
     let targetUrl = "";
     let headers = {
@@ -228,6 +230,7 @@ app.get('/api/scan', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
+// 🚀 استرجاع المحتوى لعرضه في الواجهة
 app.post('/api/get_items', async (req, res) => {
     const { server, mac, type, selectedCats } = req.body;
     try {
@@ -239,63 +242,14 @@ app.post('/api/get_items', async (req, res) => {
         let formatted = items.map(item => ({
             id: item.id || item.cmd,
             name: item.name || item.cmd,
-            logo: getRealLogo(server, item.logo || item.screenshot_uri, type) // 🚀 جلب اللوجو الحقيقي للواجهة
+            logo: item.logo || item.screenshot_uri || ""
         }));
         
         res.json({ success: true, data: formatted });
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 بروكسي الفيديو المعدل: يعمل كتطبيق VLC ويتعامل مع TS بشكل صحيح
-app.get('/proxy_stream', async (req, res) => {
-    let { server, mac, stream_id, type } = req.query;
-    try {
-        let tkRes = await callStalkerDirect(server, mac, "stb", "handshake", null);
-        let tk = tkRes?.js?.token;
-        if(!tk) return res.status(403).send("Blocked");
-
-        let streamUrl = "";
-        if (type === 'vod') {
-            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
-            streamUrl = linkRes?.js?.cmd;
-            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
-        } else {
-            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
-            streamUrl = linkRes?.js?.cmd;
-            if (!streamUrl) {
-                 linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
-                 streamUrl = linkRes?.js?.cmd;
-            }
-            if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
-        }
-
-        if(!streamUrl) return res.status(404).send("Stream not found");
-
-        const fetchRes = await fetch(streamUrl, {
-            headers: { 
-                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-                "Accept": "*/*",
-                "Connection": "keep-alive"
-            },
-            redirect: 'follow'
-        });
-
-        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
-
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
-        
-        fetchRes.body.pipe(res);
-
-        req.on('close', () => {
-            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
-                fetchRes.body.destroy();
-            }
-        });
-
-    } catch(e) { res.status(500).send("Proxy Error"); }
-});
-
+// 🚀 إنشاء وتنزيل M3U
 app.get('/get.php', async (req, res) => {
     let username = (req.query.username || "").trim();
     let password = (req.query.password || "").trim();
@@ -326,7 +280,7 @@ app.get('/get.php', async (req, res) => {
             for(let ch of channels) {
                 let cId = String(ch.injected_cat_id || "0");
                 let cName = catMap[cId] || "Live";
-                let logo = getRealLogo(portalServer, ch.logo, 'itv'); // 🚀 جلب اللوجو الحقيقي للـ M3U
+                let logo = getRealLogo(portalServer, ch.logo, 'itv');
                 let name = ch.name || "Unknown";
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
                 res.write(`${fullUrl}/live/${username}/${password}/${ch.id}.ts\n`);
@@ -343,7 +297,7 @@ app.get('/get.php', async (req, res) => {
                 if(isAdultContent(v.name)) continue;
                 let cId = String(v.injected_cat_id || "0");
                 let cName = catMap[cId] || "Movies";
-                let logo = getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod'); // 🚀 جلب اللوجو الحقيقي للـ M3U
+                let logo = getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod');
                 let name = v.name || v.cmd;
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
                 res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`);
@@ -353,6 +307,7 @@ app.get('/get.php', async (req, res) => {
     } catch(e) { return res.status(500).send("Error generating M3U"); }
 });
 
+// 🚀 واجهة الـ API المتوافقة مع Xtream Codes
 app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) => {
     let username = (req.query.username || req.body.username || "").trim();
     let password = (req.query.password || req.body.password || "").trim();
@@ -417,7 +372,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             
             responseData = channels.map(ch => ({
                 num: parseInt(ch.number || ch.id) || 0, name: String(ch.name || "Unknown"), stream_type: "live", stream_id: parseInt(ch.id) || 0, 
-                stream_icon: getRealLogo(portalServer, ch.logo, 'itv'), // 🚀 لوجو حقيقي لـ Xtream API
+                stream_icon: getRealLogo(portalServer, ch.logo, 'itv'), 
                 epg_channel_id: null, added: "1600000000", category_id: String(ch.injected_cat_id || "0"), custom_sid: "", tv_archive: parseInt(ch.tv_archive) || 0, direct_source: "", tv_archive_duration: parseInt(ch.tv_archive_duration) || 0
             }));
         } 
@@ -428,7 +383,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             
             responseData = vods.filter(v => !isAdultContent(v.name)).map(v => ({
                 num: parseInt(v.id) || 0, name: String(v.name || v.cmd), stream_type: "movie", stream_id: parseInt(v.id) || 0, 
-                stream_icon: getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod'), // 🚀 لوجو حقيقي لـ Xtream API
+                stream_icon: getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod'),
                 added: "1600000000", category_id: String(v.injected_cat_id || "0"), container_extension: "mkv", rating: String(v.rating || "5"), rating_5based: 5.0, custom_sid: "", direct_source: ""
             }));
         } 
@@ -439,7 +394,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             
             responseData = series.filter(s => !isAdultContent(s.name)).map(s => ({
                 num: parseInt(s.id) || 0, name: String(s.name), series_id: parseInt(s.id) || 0, 
-                cover: getRealLogo(portalServer, s.screenshot_uri || s.logo, 'series'), // 🚀 لوجو حقيقي لـ Xtream API
+                cover: getRealLogo(portalServer, s.screenshot_uri || s.logo, 'series'),
                 category_id: String(s.injected_cat_id || "0"), plot: "", cast: "", director: "", genre: "", releaseDate: "", last_modified: "1600000000", rating: "5", rating_5based: 5.0, backdrop_path: [], youtube_trailer: "", episode_run_time: "0"
             }));
         }
@@ -484,7 +439,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 مسار سحب الفيديو (Proxy Pipe) لحل مشكلة الـ IP-Lock نهائياً
+// 🚀 مسار سحب الفيديو (Proxy Pipe) لحل مشكلة الـ IP-Lock نهائياً ويدعم الأفلام بعد التعديل السحري
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
@@ -499,9 +454,21 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
 
     try {
         let finalStreamUrl = "";
+        
+        // 🚀 استخراج التوكن أولاً ليكون متاحاً لجميع الأقسام (مهم جداً لحل مشكلة VOD/Series)
+        const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
+        const stalkerToken = handshakeRes?.js?.token;
+        if (!stalkerToken) return res.status(403).send("MAC Blocked");
 
-        if (type === "movie") {
-            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
+        if (type === "movie" || type === "vod") {
+            // 🚀 طلب رابط الفيلم السري عبر التوكن قبل السحب
+            let linkRes = await callStalkerDirect(server, stalkerMac, "vod", `create_link&cmd=${streamId}`, stalkerToken);
+            finalStreamUrl = linkRes?.js?.cmd;
+            
+            // بديل في حال لم يرسل سيرفر ستالكر رابطاً عبر create_link
+            if (!finalStreamUrl) {
+                finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=vod`;
+            }
         } 
         else if (type === "series") {
             let actualId = streamId;
@@ -517,14 +484,18 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
                 actualId = actualId.substring(0, idx);
             }
 
-            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
-            if (playToken) finalStreamUrl += `&play_token=${playToken}`;
+            // 🚀 طلب رابط حلقة المسلسل السري عبر التوكن
+            let linkRes = await callStalkerDirect(server, stalkerMac, "vod", `create_link&cmd=${actualId}`, stalkerToken);
+            finalStreamUrl = linkRes?.js?.cmd;
+
+            // بديل في حال الفشل
+            if (!finalStreamUrl) {
+                finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
+                if (playToken) finalStreamUrl += `&play_token=${playToken}`;
+            }
         } 
         else {
-            const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-            const stalkerToken = handshakeRes?.js?.token;
-            if (!stalkerToken) return res.status(403).send("MAC Blocked");
-
+            // Live TV Logic
             let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
             let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
             let streamUrl = linkRes?.js?.cmd;
@@ -541,6 +512,7 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
 
         if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
 
+        // 🚀 السحر هنا: سحب الفيديو (أفلام، مسلسلات، بث مباشر) وضخه للمستخدم لتخطي حظر الـ IP
         const fetchRes = await fetch(finalStreamUrl, {
             headers: { 
                 "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
