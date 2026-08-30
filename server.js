@@ -6,14 +6,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ⚠️ رابط قاعدة بيانات Firebase الخاص بك
-const FIREBASE_URL = "https://gamerdz1517-db-default-rtdb.europe-west1.firebasedatabase.app"; 
+const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
 // 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '5mb' })); 
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 const localCache = new Map();
@@ -239,24 +239,85 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
+app.post('/api/get_series_info', async (req, res) => {
+    const { server, mac, series_id } = req.body;
+    try {
+        let hsRaw = await callStalkerDirect(server, mac, "stb", "handshake", null);
+        let tk = hsRaw?.js?.token;
+        if(!tk) return res.json({success: false, error: "MAC Blocked"});
+
+        let data = await fetchContentStrict(server, mac, "series", ['ALL'], null, tk, `&movie_id=${series_id}&season_id=0&episode_id=0`);
+        let epsObj = {};
+        let seasonIndex = 1;
+
+        if (data.length > 0) {
+            for (let season of data) {
+                let seasonCmd = season.cmd;
+                if (!seasonCmd) continue;
+                let episodesArr = season.series;
+                if (!Array.isArray(episodesArr) || episodesArr.length === 0) continue;
+
+                let sNum = String(season.season || seasonIndex);
+                if (!epsObj[sNum]) epsObj[sNum] = [];
+
+                for (let ep of episodesArr) {
+                    let episodeNum = String(ep);
+                    let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
+                    epsObj[sNum].push({ id: streamIdRaw, title: `الحلقة ${episodeNum}` });
+                }
+                seasonIndex++;
+            }
+        }
+        res.json({ success: true, data: epsObj });
+    } catch(e) { res.json({success: false, error: e.message}); }
+});
+
 // 🚀 مسار المعاينة الذكي الذي يحاكي مسارات التحويل بالضبط (Bypass CORS)
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
+        // 🌟 لتسريع التشغيل: البث المباشر (Live) يتم توجيهه فورا بدون طلب Token
+        if (type === 'live' || type === 'itv') {
+            const streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
+            const fetchRes = await fetch(streamUrl, {
+                headers: { "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", "Connection": "keep-alive" },
+                redirect: 'follow', timeout: 0
+            });
+            if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'video/mp2t');
+            fetchRes.body.pipe(res);
+            fetchRes.body.on('error', () => res.end());
+            req.on('close', () => { if (typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
+            return;
+        }
+
+        // 🌟 للأفلام والمسلسلات: نحتاج للـ Token لجلب الرابط الحقيقي
         let tkRes = await callStalkerDirect(server, mac, "stb", "handshake", null);
         let tk = tkRes?.js?.token;
         if(!tk) return res.status(403).send("Blocked");
 
         let streamUrl = "";
         
-        // 🌟 للأفلام: نستخدم نفس هندسة Xtream المباشرة التي تنجح دائماً
         if (type === 'vod' || type === 'movie') {
-            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
-        } else {
-            streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
-            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
-            if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
-                streamUrl = linkRes.js.cmd.startsWith('ffmpeg ') ? linkRes.js.cmd.split(' ').pop() : linkRes.js.cmd;
+            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
+        } 
+        else if (type === 'series') {
+            // 🌟 استخراج رابط الحلقة الدقيق بناء على التشفير Base64
+            let actualCmd = stream_id;
+            try {
+                let decodedId = decodeSafeBase64(stream_id);
+                actualCmd = decodedId.replace("::::", " "); // يحولها إلى Format المطلوب لسيرفر Stalker
+            } catch(e) {}
+            
+            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${encodeURIComponent(actualCmd)}`, tk);
+            streamUrl = linkRes?.js?.cmd;
+            if(!streamUrl) {
+               // Fallback: محاولة استخراج رقم الحلقة إذا فشل الأمر الأول
+               let baseId = actualCmd.split(' ')[0] || actualCmd;
+               streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${baseId}.mkv&type=series`;
             }
         }
 
@@ -268,9 +329,7 @@ app.get('/proxy_stream', async (req, res) => {
             "Connection": "keep-alive"
         };
         
-        if (req.headers.range) {
-            reqHeaders["Range"] = req.headers.range;
-        }
+        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
@@ -281,8 +340,6 @@ app.get('/proxy_stream', async (req, res) => {
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status); 
-        
-        // 🌟 السحر هنا: ترويسات تخطي حماية CORS الكاملة للمشغل
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept-Ranges');
@@ -294,18 +351,12 @@ app.get('/proxy_stream', async (req, res) => {
         });
 
         if (!res.getHeader('Content-Type')) {
-            res.setHeader('Content-Type', (type === 'vod' || type === 'movie') ? 'video/mp4' : 'video/mp2t');
+            res.setHeader('Content-Type', 'video/mp4'); // ضمان إخبار المتصفح بأنه فيديو قابل للتشغيل
         }
 
         fetchRes.body.pipe(res);
-
-        fetchRes.body.on('error', (err) => {
-            res.end();
-        });
-
-        req.on('close', () => { 
-            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); 
-        });
+        fetchRes.body.on('error', () => { res.end(); });
+        req.on('close', () => { if (typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
 
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
@@ -498,7 +549,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 مسار سحب الفيديو لتطبيقات Xtream و المضاف له ترويسات CORS الكاملة
+// 🚀 مسار سحب الفيديو (Proxy Pipe) الخاص بتطبيقات Xtream و M3U
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
@@ -536,15 +587,7 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
         } 
         else {
             finalStreamUrl = `${server}/play/live.php?mac=${stalkerMac}&stream=${streamId}&extension=ts`;
-            const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-            const stalkerToken = handshakeRes?.js?.token;
-            if (!stalkerToken) return res.status(403).send("MAC Blocked");
-
-            let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
-            let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
-            if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
-                finalStreamUrl = linkRes.js.cmd.startsWith('ffmpeg ') ? linkRes.js.cmd.split(' ').pop() : linkRes.js.cmd;
-            }
+            // لا حاجة لطلب الهاندشيك هنا لتسريع التشغيل في تطبيقات Xtream
         }
 
         if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
@@ -568,12 +611,8 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status);
-        
-        // 🌟 السحر هنا: ترويسات تخطي حماية CORS الكاملة للمشغل
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept-Ranges');
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length, Content-Type');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
         
         const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
         headersToForward.forEach(h => {
