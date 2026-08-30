@@ -53,7 +53,7 @@ function isAdultContent(name) {
     return /porn|xxx|adult|18\+|erotic|sex|adults/i.test(name.toLowerCase());
 }
 
-// 🚀 المعالج الذكي لمسارات الأيقونات
+// 🚀 المعالج الذكي لمسارات الأيقونات (لإظهار اللوجو الحقيقي في M3U و Xtream)
 function getRealLogo(serverUrl, logoPath, type) {
     if (!logoPath) return "";
     let url = String(logoPath).trim();
@@ -249,7 +249,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 بروكسي الفيديو لواجهة المشغل الداخلي
+// 🚀 [استرجاع بروكسي الفيديو لتشغيل البث في المتصفح وتخطي CORS]
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -258,8 +258,6 @@ app.get('/proxy_stream', async (req, res) => {
         if(!tk) return res.status(403).send("Blocked");
 
         let streamUrl = "";
-        
-        // جلب الرابط الأصلي سواء للأفلام أو القنوات
         if (type === 'vod') {
             let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
             streamUrl = linkRes?.js?.cmd;
@@ -276,46 +274,19 @@ app.get('/proxy_stream', async (req, res) => {
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
-        // 🛡️ نقل ترويسات التقطيع (Range) ليعمل التقديم والتأخير في الأفلام عبر البروكسي
-        let reqHeaders = { 
-            "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-            "Accept": "*/*",
-            "Connection": "keep-alive"
-        };
-        
-        // هذا السطر يخبر السيرفر الخارجي أن المتصفح يريد تقطيع الفيديو (Range)
-        if (req.headers.range) {
-            reqHeaders["Range"] = req.headers.range;
-        }
-
         const fetchRes = await fetch(streamUrl, {
-            headers: reqHeaders,
+            headers: { 
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            },
             redirect: 'follow'
         });
 
-        // السماح بالاستجابة 206 (Partial Content) الخاصة بتقطيع الأفلام
-        if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
+        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
 
         res.setHeader('Access-Control-Allow-Origin', '*');
-        
-        let contentType = fetchRes.headers.get('content-type');
-        if (!contentType || contentType.includes('application/octet-stream')) {
-            contentType = type === 'vod' ? 'video/mp4' : 'video/mp2t';
-        }
-        res.setHeader('Content-Type', contentType);
-
-        // تمرير ترويسات التقسيم (Range) لمتصفح الويب كي لا يتوقف عن التحميل
-        if (fetchRes.headers.get('content-range')) {
-            res.status(206);
-            res.setHeader('Content-Range', fetchRes.headers.get('content-range'));
-            res.setHeader('Accept-Ranges', 'bytes');
-        } else {
-            res.setHeader('Accept-Ranges', 'bytes');
-        }
-
-        if (fetchRes.headers.get('content-length')) {
-            res.setHeader('Content-Length', fetchRes.headers.get('content-length'));
-        }
+        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
         
         fetchRes.body.pipe(res);
 
@@ -328,7 +299,7 @@ app.get('/proxy_stream', async (req, res) => {
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
 
-// 🚀 تحميل الـ M3U المباشر 
+// 🚀 تحميل الـ M3U المباشر بدون الضغط على الـ RAM
 app.get('/get.php', async (req, res) => {
     let username = (req.query.username || "").trim();
     let password = (req.query.password || "").trim();
@@ -386,7 +357,6 @@ app.get('/get.php', async (req, res) => {
     } catch(e) { return res.status(500).send("Error generating M3U"); }
 });
 
-// 🚀 واجهة الـ API المتوافقة مع Xtream Codes
 app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) => {
     let username = (req.query.username || req.body.username || "").trim();
     let password = (req.query.password || req.body.password || "").trim();
@@ -518,7 +488,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 إرجاع نظام التحويل المباشر القوي للملفات الخارجية (M3U و Xtream)
+// 🚀 مسار سحب الفيديو (Proxy Pipe) لحل مشكلة الـ IP-Lock نهائياً وبدون VPN
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
@@ -532,11 +502,12 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
     let stalkerMac = authData.mac; 
 
     try {
-        if (type === "movie" || type === "vod") {
-            return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`);
-        }
+        let finalStreamUrl = "";
 
-        if (type === "series") {
+        if (type === "movie") {
+            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
+        } 
+        else if (type === "series") {
             let actualId = streamId;
             let playToken = "";
             try {
@@ -550,31 +521,57 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
                 actualId = actualId.substring(0, idx);
             }
 
-            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
-            if (playToken) directUrl += `&play_token=${playToken}`;
-            return res.redirect(directUrl);
+            finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
+            if (playToken) finalStreamUrl += `&play_token=${playToken}`;
+        } 
+        else {
+            // Live TV Logic
+            const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
+            const stalkerToken = handshakeRes?.js?.token;
+            if (!stalkerToken) return res.status(403).send("MAC Blocked");
+
+            let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
+            let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
+            let streamUrl = linkRes?.js?.cmd;
+
+            if (!streamUrl) { 
+                linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
+                streamUrl = linkRes?.js?.cmd; 
+            }
+
+            if (streamUrl) { 
+                finalStreamUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
+            }
         }
 
-        // Live TV
-        const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-        const stalkerToken = handshakeRes?.js?.token;
-        if (!stalkerToken) return res.status(403).send("MAC Blocked");
+        if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
 
-        let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
-        let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
-        let streamUrl = linkRes?.js?.cmd;
+        // 🚀 السحر هنا: سحب الفيديو عبر سيرفرك وضخه للمستخدم لتخطي حظر الـ IP-Lock بالكامل
+        const fetchRes = await fetch(finalStreamUrl, {
+            headers: { 
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            },
+            redirect: 'follow' 
+        });
 
-        if (!streamUrl) { 
-            linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
-            streamUrl = linkRes?.js?.cmd; 
-        }
+        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
 
-        if (streamUrl) { 
-            let finalUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
-            return res.redirect(finalUrl); 
-        }
-        return res.status(404).send("Stream Not Found");
-    } catch(e) { return res.status(500).send("Bridge Error"); }
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || (type === "live" ? 'video/mp2t' : 'video/mp4'));
+        
+        fetchRes.body.pipe(res);
+
+        req.on('close', () => {
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
+                fetchRes.body.destroy();
+            }
+        });
+
+    } catch(e) { 
+        return res.status(500).send("Bridge Error"); 
+    }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
