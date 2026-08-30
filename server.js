@@ -330,6 +330,63 @@ app.get('/get.php', async (req, res) => {
             for(let ch of channels) {
                 let cId = String(ch.injected_cat_id || "0");
                 let cName = catMap[cId] || "Live";
+                let logo = ch.logo || "";
+                let name = ch.name || "Unknown";
+                res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
+                res.write(`${fullUrl}/live/${username}/${password}/${ch.id}.ts\n`);
+            }
+        }
+
+        if (sel.v && sel.v.length > 0) {
+            let catRes = await callStalkerDirect(portalServer, stalkerMac, "vod", "get_categories", stalkerToken);
+            let catList = catRes?.js ? (Array.isArray(catRes.js) ? catRes.js : Object.values(catRes.js)) : [];
+            let catMap = {}; catList.forEach(c => catMap[String(c.id)] = c.title || c.name);
+
+            let vods = await fetchContentStrict(portalServer, stalkerMac, "vod", sel.v, null, stalkerToken);
+            for(let v of vods) {
+                if(isAdultContent(v.name)) continue;
+                let cId = String(v.injected_cat_id || "0");
+                let cName = catMap[cId] || "Movies";
+                let logo = v.screenshot_uri || v.logo || "";
+                let name = v.name || v.cmd;
+                res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
+                res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`);
+            }
+        }
+        res.end();
+    } catch(e) { return res.status(500).send("Error generating M3U"); }
+});
+// 🚀 تحميل الـ M3U المباشر بدون الضغط على الـ RAM
+app.get('/get.php', async (req, res) => {
+    let username = (req.query.username || "").trim();
+    let password = (req.query.password || "").trim();
+
+    let authData = await getAuthDataFromFirebase(password);
+    if (!authData || authData.mac.toLowerCase() !== username.toLowerCase()) return res.status(403).send("Unauthorized");
+
+    let portalServer = authData.srv;
+    let stalkerMac = authData.mac; 
+    let sel = authData.selections || { l: [], v: [], s: [] };
+    let fullUrl = `http://${req.headers['x-forwarded-host'] || req.get('host')}`;
+
+    try {
+        let handshakeRes = await callStalkerDirect(portalServer, stalkerMac, "stb", "handshake");
+        let stalkerToken = handshakeRes?.js?.token;
+        if (!stalkerToken) return res.status(403).send("MAC Blocked");
+
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="GAMERDZ1517_${username}.m3u"`);
+        res.write("#EXTM3U\n"); 
+        
+        if (sel.l && sel.l.length > 0) {
+            let catRes = await callStalkerDirect(portalServer, stalkerMac, "itv", "get_genres", stalkerToken);
+            let catList = catRes?.js ? (Array.isArray(catRes.js) ? catRes.js : Object.values(catRes.js)) : [];
+            let catMap = {}; catList.forEach(c => catMap[String(c.id)] = c.title || c.name);
+
+            let channels = await fetchContentStrict(portalServer, stalkerMac, "itv", sel.l, null, stalkerToken);
+            for(let ch of channels) {
+                let cId = String(ch.injected_cat_id || "0");
+                let cName = catMap[cId] || "Live";
                 let logo = getRealLogo(portalServer, ch.logo, 'itv');
                 let name = ch.name || "Unknown";
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
