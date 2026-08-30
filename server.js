@@ -53,7 +53,7 @@ function isAdultContent(name) {
     return /porn|xxx|adult|18\+|erotic|sex|adults/i.test(name.toLowerCase());
 }
 
-// 🚀 المعالج الذكي لمسارات الأيقونات
+// 🚀 المعالج الذكي لمسارات الأيقونات (لإظهار اللوجو الحقيقي في M3U و Xtream)
 function getRealLogo(serverUrl, logoPath, type) {
     if (!logoPath) return "";
     let url = String(logoPath).trim();
@@ -61,6 +61,7 @@ function getRealLogo(serverUrl, logoPath, type) {
     
     let srv = serverUrl.replace(/\/+$/, '');
     if (url.startsWith('/')) return srv + url;
+    
     if (url.includes('/')) return srv + '/' + url;
     
     if (type === 'vod' || type === 'series') {
@@ -84,7 +85,7 @@ function safeFallback(action) {
     } else return [];
 }
 
-// 🚀 الاتصال المباشر بسيرفرات Stalker
+// 🚀 الاتصال المباشر بسيرفرات Stalker من Render 
 async function callStalkerDirect(serverUrl, macAddress, stalkerType, stalkerAction, token = null) {
     let targetUrl = "";
     let headers = {
@@ -229,6 +230,7 @@ app.get('/api/scan', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
+// 🚀 [استرجاع مسار جلب المحتوى لعرضه في واجهة المشغل]
 app.post('/api/get_items', async (req, res) => {
     const { server, mac, type, selectedCats } = req.body;
     try {
@@ -247,7 +249,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 بروكسي الواجهة (يدعم الـ Range للأفلام)
+// 🚀 [استرجاع بروكسي الفيديو لتشغيل البث في المتصفح وتخطي CORS]
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -256,7 +258,7 @@ app.get('/proxy_stream', async (req, res) => {
         if(!tk) return res.status(403).send("Blocked");
 
         let streamUrl = "";
-        if (type === 'vod' || type === 'movie') {
+        if (type === 'vod') {
             let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
             streamUrl = linkRes?.js?.cmd;
             if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
@@ -272,38 +274,33 @@ app.get('/proxy_stream', async (req, res) => {
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
-        const reqHeaders = { 
-            "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-            "Accept": "*/*",
-            "Connection": "keep-alive"
-        };
-        
-        // 🌟 السحر هنا: تمرير ترويسة Range لتشغيل وتقديم الأفلام
-        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
-
         const fetchRes = await fetch(streamUrl, {
-            headers: reqHeaders,
+            headers: { 
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            },
             redirect: 'follow'
         });
 
-        if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
+        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
 
-        res.status(fetchRes.status); // تمرير 200 أو 206 Partial Content
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
         
-        if (fetchRes.headers.has('content-type')) res.setHeader('Content-Type', fetchRes.headers.get('content-type'));
-        if (fetchRes.headers.has('content-length')) res.setHeader('Content-Length', fetchRes.headers.get('content-length'));
-        if (fetchRes.headers.has('content-range')) res.setHeader('Content-Range', fetchRes.headers.get('content-range'));
-        if (fetchRes.headers.has('accept-ranges')) res.setHeader('Accept-Ranges', fetchRes.headers.get('accept-ranges'));
-
         fetchRes.body.pipe(res);
-        req.on('close', () => { if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
+
+        req.on('close', () => {
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
+                fetchRes.body.destroy();
+            }
+        });
 
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
 
+// 🚀 تحميل الـ M3U المباشر بدون الضغط على الـ RAM
 app.get('/get.php', async (req, res) => {
-    // ... [الكود الخاص بـ get.php يبقى كما هو تماماً بدون تغيير لتوليد M3U]
     let username = (req.query.username || "").trim();
     let password = (req.query.password || "").trim();
 
@@ -353,7 +350,7 @@ app.get('/get.php', async (req, res) => {
                 let logo = getRealLogo(portalServer, v.screenshot_uri || v.logo, 'vod');
                 let name = v.name || v.cmd;
                 res.write(`#EXTINF:-1 tvg-id="" tvg-name="${name}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${name}\n`);
-                res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`); // يعطي رابط الفلم المطلوب
+                res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`);
             }
         }
         res.end();
@@ -361,7 +358,6 @@ app.get('/get.php', async (req, res) => {
 });
 
 app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) => {
-    // ... [كود الـ XTREAM API يبقى كما هو تماماً]
     let username = (req.query.username || req.body.username || "").trim();
     let password = (req.query.password || req.body.password || "").trim();
     let apiAction = req.query.action || req.body.action || "";
@@ -380,6 +376,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     let portalServer = authData.srv;
     let stalkerMac = authData.mac; 
     let sel = authData.selections || { l: [], v: [], s: [] };
+
     let host = req.headers['x-forwarded-host'] || req.get('host');
     let fullUrl = `http://${host}`;
 
@@ -416,6 +413,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             if (!sel.s.includes('ALL')) list = list.filter(c => sel.s.includes(String(c.id)));
             responseData = list.map(c => ({ category_id: String(c.id), category_name: String(c.title || c.name), parent_id: 0 }));
         } 
+        
         else if (apiAction === "get_live_streams") {
             let reqCat = (categoryId && categoryId !== "null" && categoryId !== "*" && categoryId !== "0") ? String(categoryId) : null;
             if (reqCat && !sel.l.includes('ALL') && !sel.l.includes(reqCat)) return res.json([]);
@@ -490,7 +488,7 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     } catch (e) { return res.json(safeFallback(apiAction)); }
 });
 
-// 🚀 مسار سحب الفيديو M3U/XTREAM (يدعم الـ Range للأفلام)
+// 🚀 مسار سحب الفيديو (Proxy Pipe) لحل مشكلة الـ IP-Lock نهائياً وبدون VPN
 app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:user/:pass/:stream', '/:user/:pass/:stream'], async (req, res) => {
     const type = req.path.split('/')[1] || "live";
     const username = decodeURIComponent(req.params.user).trim();
@@ -507,67 +505,73 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
         let finalStreamUrl = "";
 
         if (type === "movie") {
-            // يتم توجيه الفلم للرابط المطلوب مباشرة
             finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
         } 
         else if (type === "series") {
-            let actualId = streamId; let playToken = "";
+            let actualId = streamId;
+            let playToken = "";
             try {
                 let decodedId = decodeSafeBase64(streamId);
                 if (decodedId.includes("::::")) actualId = decodedId.split("::::")[0];
             } catch(e) {}
+
             if (actualId.includes("-")) {
                 let idx = actualId.indexOf("-");
                 playToken = actualId.substring(idx + 1);
                 actualId = actualId.substring(0, idx);
             }
+
             finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
             if (playToken) finalStreamUrl += `&play_token=${playToken}`;
         } 
         else {
+            // Live TV Logic
             const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
             const stalkerToken = handshakeRes?.js?.token;
             if (!stalkerToken) return res.status(403).send("MAC Blocked");
+
             let cmd = encodeURIComponent(`ffmpeg localhost/ch/${streamId}`);
             let linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${cmd}`, stalkerToken);
             let streamUrl = linkRes?.js?.cmd;
+
             if (!streamUrl) { 
                 linkRes = await callStalkerDirect(server, stalkerMac, "itv", `create_link&cmd=${streamId}`, stalkerToken); 
                 streamUrl = linkRes?.js?.cmd; 
             }
-            if (streamUrl) finalStreamUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
+
+            if (streamUrl) { 
+                finalStreamUrl = streamUrl.startsWith('ffmpeg ') ? streamUrl.split(' ').pop() : streamUrl; 
+            }
         }
 
         if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
 
-        const reqHeaders = { 
-            "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-            "Accept": "*/*",
-            "Connection": "keep-alive"
-        };
-
-        // 🌟 تمرير ترويسة Range إذا طلبها تطبيق التشغيل أو المتصفح
-        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
-
+        // 🚀 السحر هنا: سحب الفيديو عبر سيرفرك وضخه للمستخدم لتخطي حظر الـ IP-Lock بالكامل
         const fetchRes = await fetch(finalStreamUrl, {
-            headers: reqHeaders,
+            headers: { 
+                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            },
             redirect: 'follow' 
         });
 
-        if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
+        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
 
-        res.status(fetchRes.status);
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', fetchRes.headers.get('content-type') || (type === "live" ? 'video/mp2t' : 'video/mp4'));
         
-        if (fetchRes.headers.has('content-type')) res.setHeader('Content-Type', fetchRes.headers.get('content-type'));
-        if (fetchRes.headers.has('content-length')) res.setHeader('Content-Length', fetchRes.headers.get('content-length'));
-        if (fetchRes.headers.has('content-range')) res.setHeader('Content-Range', fetchRes.headers.get('content-range'));
-        if (fetchRes.headers.has('accept-ranges')) res.setHeader('Accept-Ranges', fetchRes.headers.get('accept-ranges'));
-
         fetchRes.body.pipe(res);
-        req.on('close', () => { if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
 
-    } catch(e) { return res.status(500).send("Bridge Error"); }
+        req.on('close', () => {
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
+                fetchRes.body.destroy();
+            }
+        });
+
+    } catch(e) { 
+        return res.status(500).send("Bridge Error"); 
+    }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
