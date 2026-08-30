@@ -475,7 +475,7 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
     let stalkerMac = authData.mac; 
 
     try {
-        if (type === "movie") return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`);
+        if (type === "movie") return res.redirect(`${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv`);
 
         if (type === "series") {
             let actualId = streamId;
@@ -491,7 +491,7 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
                 actualId = actualId.substring(0, idx);
             }
 
-            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv&type=series`;
+            let directUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualId}.mkv`;
             if (playToken) directUrl += `&play_token=${playToken}`;
             return res.redirect(directUrl);
         }
