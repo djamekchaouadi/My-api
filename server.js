@@ -5,10 +5,10 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ⚠️ رابط قاعدة بيانات Firebase الخاص بك
+// ⚠️ ضع رابط قاعدة بيانات Firebase الخاص بك هنا 
 const FIREBASE_URL = "https://gamer-4b700-default-rtdb.europe-west1.firebasedatabase.app"; 
 
-// 🛡️ حماية سيرفر رندر من الانهيار التام
+// 🛡️ حماية سيرفر رندر من الانهيار
 process.on('uncaughtException', function (err) { console.error('Caught exception: ', err); });
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
@@ -16,7 +16,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 🚀 نظام التخزين المؤقت (Cache) لتقليل استهلاك Firebase
 const localCache = new Map();
 
 async function getAuthDataFromFirebase(password) {
@@ -67,7 +66,6 @@ function safeFallback(action) {
     } else return [];
 }
 
-// 🚀 الاتصال المباشر بسيرفرات Stalker من Render 
 async function callStalkerDirect(serverUrl, macAddress, stalkerType, stalkerAction, token = null) {
     let targetUrl = "";
     let headers = {
@@ -212,7 +210,6 @@ app.get('/api/scan', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [استرجاع مسار جلب المحتوى لعرضه في واجهة المشغل]
 app.post('/api/get_items', async (req, res) => {
     const { server, mac, type, selectedCats } = req.body;
     try {
@@ -231,7 +228,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [استرجاع بروكسي الفيديو لتشغيل البث في المتصفح وتخطي CORS]
+// 🚀 بروكسي الفيديو المعدل: يعمل كتطبيق VLC ويتعامل مع TS بشكل صحيح
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -256,6 +253,7 @@ app.get('/proxy_stream', async (req, res) => {
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
+        // 🚀 الاتصال بالسيرفر كاننا VLC Player لتجنب الحظر
         const fetchRes = await fetch(streamUrl, {
             headers: { 
                 "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
@@ -270,8 +268,10 @@ app.get('/proxy_stream', async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
         
+        // ربط تدفق الفيديو مباشرة
         fetchRes.body.pipe(res);
 
+        // 💡 خدعة هامة: عند قيام المستخدم بإغلاق الفيديو، نقوم بإيقاف السحب من IPTV لتوفير الباندويث
         req.on('close', () => {
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
                 fetchRes.body.destroy();
@@ -281,7 +281,6 @@ app.get('/proxy_stream', async (req, res) => {
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
 
-// 🚀 تحميل الـ M3U المباشر بدون الضغط على الـ RAM
 app.get('/get.php', async (req, res) => {
     let username = (req.query.username || "").trim();
     let password = (req.query.password || "").trim();
