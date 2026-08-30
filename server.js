@@ -63,6 +63,24 @@ function getRealLogo(serverUrl, logoPath, type) {
     return srv + '/stalker_portal/misc/logos/320/' + url;
 }
 
+// 🚀 دالة تنظيف الروابط الذكية (لحل مشاكل Localhost والـ M3U8 والشرطات المائلة)
+function cleanStalkerUrl(url, serverUrl) {
+    if (!url || typeof url !== 'string') return null;
+    let clean = url.replace(/\\\//g, '/'); // إصلاح شرطات JSON المقلوبة
+    if (clean.startsWith('ffrt ')) clean = clean.substring(5).trim();
+    if (clean.startsWith('ffmpeg ')) clean = clean.substring(7).trim();
+    if (clean.includes('localhost')) {
+        try {
+            let host = new URL(serverUrl).host;
+            clean = clean.replace('localhost', host);
+        } catch(e) {}
+    }
+    if (clean.startsWith('/')) {
+        clean = serverUrl.replace(/\/$/, '') + clean;
+    }
+    return clean;
+}
+
 function safeFallback(action) {
     let timeNow = new Date().toISOString().replace('T', ' ').substring(0, 19);
     if (action === "") {
@@ -276,47 +294,50 @@ app.post('/api/get_series_info', async (req, res) => {
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
-        let tkRes = await callStalkerDirect(server, mac, "stb", "handshake", null);
-        let tk = tkRes?.js?.token;
-        if(!tk) return res.status(403).send("Blocked");
-
         let streamUrl = "";
         
-        if (type === 'vod' || type === 'movie') {
-            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
-            streamUrl = linkRes?.js?.cmd;
-            if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
-        } 
-        else if (type === 'series') {
-            // 🌟 الإصلاح الحاسم لتشغيل المسلسلات (إصلاح فصل الـ ID ورقم الحلقة)
-            let actualCmd = stream_id;
-            let episodeNum = "";
-            try {
-                let decodedId = decodeSafeBase64(stream_id);
-                if (decodedId.includes("::::")) {
-                    let parts = decodedId.split("::::");
-                    actualCmd = parts[0];
-                    episodeNum = parts[1]; // استخراج رقم الحلقة الصحيح
-                }
-            } catch(e) {}
-            
-            // نطلب رابط الحلقة عبر مسار create_link الخاص بالـ vod
-            let linkQuery = `create_link&cmd=${encodeURIComponent(actualCmd)}`;
-            if (episodeNum) linkQuery += `&series=${episodeNum}`; // إرفاق رقم الحلقة
-            
-            let linkRes = await callStalkerDirect(server, mac, "vod", linkQuery, tk);
-            streamUrl = linkRes?.js?.cmd;
-            
-            if(!streamUrl) {
-                // محاولة الطريقة الكلاسيكية
-                streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${actualCmd}.mkv&type=series`;
-            }
-        }
-        else {
+        // القنوات המباشرة (تعمل بدون هاندشيك للسرعة القصوى)
+        if (type === 'live' || type === 'itv') {
             streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
-            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
-            if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
-                streamUrl = linkRes.js.cmd.startsWith('ffmpeg ') ? linkRes.js.cmd.split(' ').pop() : linkRes.js.cmd;
+        } 
+        else {
+            // الأفلام والمسلسلات تحتاج Token وجلب مسار create_link
+            let tkRes = await callStalkerDirect(server, mac, "stb", "handshake", null);
+            let tk = tkRes?.js?.token;
+            if(!tk) return res.status(403).send("Blocked");
+
+            if (type === 'vod' || type === 'movie') {
+                let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
+                streamUrl = cleanStalkerUrl(linkRes?.js?.cmd, server);
+                if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
+            } 
+            else if (type === 'series') {
+                // 🌟 الحل الجذري للمسلسلات: فك التشفير واستخراج رقم الحلقة لطلب رابط الـ play_token
+                let actualCmd = stream_id;
+                let episodeNum = "";
+                try {
+                    let decodedId = decodeSafeBase64(stream_id);
+                    if (decodedId.includes("::::")) {
+                        let parts = decodedId.split("::::");
+                        actualCmd = parts[0];
+                        episodeNum = parts[1];
+                    }
+                } catch(e) {}
+                
+                let linkQuery = `create_link&cmd=${encodeURIComponent(actualCmd)}`;
+                if (episodeNum) linkQuery += `&series=${episodeNum}`;
+                
+                let linkRes = await callStalkerDirect(server, mac, "vod", linkQuery, tk);
+                
+                if (!linkRes || !linkRes.js || !linkRes.js.cmd) {
+                    linkRes = await callStalkerDirect(server, mac, "series", linkQuery, tk);
+                }
+
+                streamUrl = cleanStalkerUrl(linkRes?.js?.cmd, server);
+                
+                if(!streamUrl) {
+                    streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${actualCmd}.mkv&type=series`;
+                }
             }
         }
 
@@ -328,9 +349,7 @@ app.get('/proxy_stream', async (req, res) => {
             "Connection": "keep-alive"
         };
         
-        if (req.headers.range) {
-            reqHeaders["Range"] = req.headers.range;
-        }
+        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
@@ -356,18 +375,13 @@ app.get('/proxy_stream', async (req, res) => {
         }
 
         fetchRes.body.pipe(res);
-
-        fetchRes.body.on('error', (err) => {
-            res.end();
-        });
-
-        req.on('close', () => { 
-            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); 
-        });
+        fetchRes.body.on('error', () => { res.end(); });
+        req.on('close', () => { if (typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); });
 
     } catch(e) { res.status(500).send("Proxy Error"); }
 });
 
+// 🚀 تحديث M3U ليدعم تنزيل حلقات المسلسلات كلها
 app.get('/get.php', async (req, res) => {
     let username = (req.query.username || "").trim();
     let password = (req.query.password || "").trim();
@@ -421,6 +435,44 @@ app.get('/get.php', async (req, res) => {
                 res.write(`${fullUrl}/movie/${username}/${password}/${v.id}.mkv\n`);
             }
         }
+
+        // 🌟 إضافة المسلسلات والحلقات لملف الـ M3U
+        if (sel.s && sel.s.length > 0) {
+            let catRes = await callStalkerDirect(portalServer, stalkerMac, "series", "get_categories", stalkerToken).catch(()=>null);
+            let catList = catRes?.js ? (Array.isArray(catRes.js) ? catRes.js : Object.values(catRes.js)) : [];
+            let catMap = {}; catList.forEach(c => catMap[String(c.id)] = c.title || c.name);
+
+            let seriesList = await fetchContentStrict(portalServer, stalkerMac, "series", sel.s, null, stalkerToken);
+            for(let s of seriesList) {
+                if(isAdultContent(s.name)) continue;
+                let sId = s.id || s.cmd;
+                let cId = String(s.injected_cat_id || "0");
+                let cName = catMap[cId] || "Series";
+                let logo = getRealLogo(portalServer, s.screenshot_uri || s.logo, 'series');
+                let name = s.name || s.cmd;
+                
+                let epData = await fetchContentStrict(portalServer, stalkerMac, "series", ['ALL'], null, stalkerToken, `&movie_id=${sId}&season_id=0&episode_id=0`);
+                if (epData.length > 0) {
+                    let seasonIndex = 1;
+                    for (let season of epData) {
+                        let seasonCmd = season.cmd;
+                        if (!seasonCmd) continue;
+                        let episodesArr = season.series;
+                        if (!Array.isArray(episodesArr) || episodesArr.length === 0) continue;
+                        let sNum = String(season.season || seasonIndex);
+                        for (let ep of episodesArr) {
+                            let episodeNum = String(ep);
+                            let streamIdRaw = encodeSafeBase64(`${seasonCmd}::::${episodeNum}`);
+                            let epName = `${name} - S${sNum} E${episodeNum}`;
+                            res.write(`#EXTINF:-1 tvg-id="" tvg-name="${epName}" tvg-logo="${logo}" group-title="${cName} by ᴳᴬᴹᴱᴿᴰᶻ¹⁵¹⁷",${epName}\n`);
+                            res.write(`${fullUrl}/series/${username}/${password}/${streamIdRaw}.mkv\n`);
+                        }
+                        seasonIndex++;
+                    }
+                }
+            }
+        }
+
         res.end();
     } catch(e) { return res.status(500).send("Error generating M3U"); }
 });
@@ -576,7 +628,6 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
             finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
         } 
         else if (type === "series") {
-            // 🌟 الإصلاح الحاسم للمسلسلات عبر تطبيقات IPTV
             let actualCmd = streamId;
             let episodeNum = "";
             try {
@@ -584,27 +635,30 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
                 if (decodedId.includes("::::")) {
                     let parts = decodedId.split("::::");
                     actualCmd = parts[0];
-                    episodeNum = parts[1]; // استخراج رقم الحلقة
+                    episodeNum = parts[1];
                 }
             } catch(e) {}
 
             const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
-            const stalkerToken = handshakeRes?.js?.token;
-            if (!stalkerToken) return res.status(403).send("MAC Blocked");
+            const tk = handshakeRes?.js?.token;
+            if (!tk) return res.status(403).send("MAC Blocked");
 
             let linkQuery = `create_link&cmd=${encodeURIComponent(actualCmd)}`;
-            if (episodeNum) linkQuery += `&series=${episodeNum}`; // إرفاق رقم الحلقة لتحديد المسار الصحيح
+            if (episodeNum) linkQuery += `&series=${episodeNum}`; 
 
-            let linkRes = await callStalkerDirect(server, stalkerMac, "vod", linkQuery, stalkerToken);
-            if (linkRes?.js?.cmd) {
-                finalStreamUrl = linkRes.js.cmd;
-            } else {
+            let linkRes = await callStalkerDirect(server, stalkerMac, "vod", linkQuery, tk);
+            if (!linkRes || !linkRes.js || !linkRes.js.cmd) {
+                linkRes = await callStalkerDirect(server, stalkerMac, "series", linkQuery, tk);
+            }
+
+            finalStreamUrl = cleanStalkerUrl(linkRes?.js?.cmd, server);
+            
+            if(!finalStreamUrl) {
                 finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${actualCmd}.mkv&type=series`;
             }
         } 
         else {
             finalStreamUrl = `${server}/play/live.php?mac=${stalkerMac}&stream=${streamId}&extension=ts`;
-            // لا حاجة لطلب الهاندشيك هنا لتسريع التشغيل في تطبيقات Xtream
         }
 
         if (!finalStreamUrl) return res.status(404).send("Stream Not Found");
