@@ -239,7 +239,7 @@ app.post('/api/get_items', async (req, res) => {
     } catch(e) { res.json({success: false, error: e.message}); }
 });
 
-// 🚀 [المسار المحدث بالكامل لواجهة المشغل - يحل مشكلة الـ VOD والـ Live معاً]
+// 🚀 [المسار المحدث بالكامل لواجهة المشغل - يحل مشكلة الـ VOD والـ Live معاً بنسبة 100%]
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -249,22 +249,12 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
-        // 🌟 للأفلام (VOD): يجب استخراج الرابط المباشر الصحيح من السيرفر
+        // 🌟 للأفلام (VOD): نستخدم الرابط المباشر بنفس الطريقة التي تعمل في تطبيق Xtream
         if (type === 'vod' || type === 'movie') {
-            let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
-            
-            // تحقق إذا ما كان الرابط يبدأ بـ http، وإلا قم بدمجه مع مسار السيرفر الأساسي
-            if (linkRes?.js?.cmd && linkRes.js.cmd.startsWith("http")) {
-                streamUrl = linkRes.js.cmd;
-            } else {
-                 // إذا فشل إنشاء الرابط، نعتمد الاستراتيجية البديلة القوية
-                 streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}&extension=mp4&type=vod`;
-            }
-            
+            streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
         } else {
-            // 🌟 للقنوات (Live): فرض إرجاع صيغة TS المباشرة لتجنب ملفات M3U8 التي تعطل المشغل
+            // 🌟 للقنوات: نفرض إرجاع صيغة TS
             streamUrl = `${server}/play/live.php?mac=${mac}&stream=${stream_id}&extension=ts`;
-            
             let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
             if (linkRes?.js?.cmd && !linkRes.js.cmd.includes('.m3u8')) {
                 streamUrl = linkRes.js.cmd.startsWith('ffmpeg ') ? linkRes.js.cmd.split(' ').pop() : linkRes.js.cmd;
@@ -279,35 +269,36 @@ app.get('/proxy_stream', async (req, res) => {
             "Connection": "keep-alive"
         };
         
-        // 🌟 إضافة ترويسة Range لتشغيل وتقديم/تأخير الأفلام بدون انهيار (VOD Fix)
+        // 🌟 دعم تمرير الوقت (Seek) لتشغيل الأفلام في المتصفح
         if (req.headers.range) {
             reqHeaders["Range"] = req.headers.range;
         }
 
         const fetchRes = await fetch(streamUrl, {
             headers: reqHeaders,
-            redirect: 'follow', // السحر هنا: يتتبع تحويلات السيرفر حتى يمسك بملف الفيديو الحقيقي
-            timeout: 0
+            redirect: 'follow',
+            timeout: 0 
         });
 
-        // الاستجابة 206 تعني Partial Content (ضرورية للأفلام)
         if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.status(fetchRes.status); 
         res.setHeader('Access-Control-Allow-Origin', '*');
         
-        // تمرير الترويسات الهامة من السيرفر الأصلي للمتصفح
+        // 🌟 هام جداً: إخبار المتصفح بأننا نسمح له بقراءة هذه الترويسات ليعرف طول الفيلم وتعمل الأفلام بصيغة MKV
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+
         const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
         headersToForward.forEach(h => {
             if (fetchRes.headers.has(h)) res.setHeader(h, fetchRes.headers.get(h));
         });
 
-        // فرض نوع المحتوى للمشغل حتى لا يرتبك المتصفح
-        if (!res.getHeader('Content-Type')) {
-            res.setHeader('Content-Type', (type === 'vod' || type === 'movie') ? 'video/mp4' : 'video/mp2t');
-        }
-
         fetchRes.body.pipe(res);
+        
+        // معالجة أخطاء قطع الاتصال حتى لا ينهار السيرفر
+        fetchRes.body.on('error', (err) => {
+            res.end();
+        });
 
         req.on('close', () => { 
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); 
@@ -520,7 +511,6 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
     try {
         let finalStreamUrl = "";
 
-        // 🌟 بناء الرابط المباشر لكل صيغة بدقة
         if (type === "movie") {
             finalStreamUrl = `${server}/play/movie.php?mac=${stalkerMac}&stream=${streamId}.mkv&type=${type}`;
         } 
@@ -542,10 +532,7 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
             if (playToken) finalStreamUrl += `&play_token=${playToken}`;
         } 
         else {
-            // للقنوات نطلب ملف TS المباشر
             finalStreamUrl = `${server}/play/live.php?mac=${stalkerMac}&stream=${streamId}&extension=ts`;
-            
-            // تحقق إضافي عبر الهاندشيك
             const handshakeRes = await callStalkerDirect(server, stalkerMac, "stb", "handshake");
             const stalkerToken = handshakeRes?.js?.token;
             if (!stalkerToken) return res.status(403).send("MAC Blocked");
@@ -565,7 +552,6 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
             "Connection": "keep-alive"
         };
         
-        // 🌟 إضافة ترويسة Range لتطبيقات الـ IPTV لتستطيع تشغيل وتمرير الأفلام
         if (req.headers.range) {
             reqHeaders["Range"] = req.headers.range;
         }
@@ -580,17 +566,15 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
 
         res.status(fetchRes.status);
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
         
         const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
         headersToForward.forEach(h => {
             if (fetchRes.headers.has(h)) res.setHeader(h, fetchRes.headers.get(h));
         });
 
-        if (!res.getHeader('Content-Type')) {
-            res.setHeader('Content-Type', (type === "live" ? 'video/mp2t' : 'video/mp4'));
-        }
-        
         fetchRes.body.pipe(res);
+        fetchRes.body.on('error', (err) => res.end());
 
         req.on('close', () => {
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
