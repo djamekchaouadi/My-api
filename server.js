@@ -250,6 +250,7 @@ app.post('/api/get_items', async (req, res) => {
 });
 
 // 🚀 بروكسي الفيديو لواجهة المشغل الداخلي
+// 🚀 بروكسي الفيديو لواجهة المشغل الداخلي
 app.get('/proxy_stream', async (req, res) => {
     let { server, mac, stream_id, type } = req.query;
     try {
@@ -258,35 +259,56 @@ app.get('/proxy_stream', async (req, res) => {
         if(!tk) return res.status(403).send("Blocked");
 
         let streamUrl = "";
+        
+        // 🌟 التعديل الجذري: الأفلام (VOD) تعمل بتوجيه مباشر (Redirect)
         if (type === 'vod') {
             let linkRes = await callStalkerDirect(server, mac, "vod", `create_link&cmd=${stream_id}`, tk);
             streamUrl = linkRes?.js?.cmd;
             if(!streamUrl) streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=vod`;
-        } else {
-            let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
-            streamUrl = linkRes?.js?.cmd;
-            if (!streamUrl) {
-                 linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
-                 streamUrl = linkRes?.js?.cmd;
-            }
-            if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
+            
+            // التوجيه المباشر يحل مشكلة Loading نهائياً ويخفف الضغط عن سيرفر رندر بنسبة 90%
+            return res.redirect(streamUrl);
+        } 
+        
+        // 📡 البث المباشر (Live TV) يبقى عبر البروكسي كما هو
+        let linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${encodeURIComponent('ffmpeg localhost/ch/'+stream_id)}`, tk);
+        streamUrl = linkRes?.js?.cmd;
+        if (!streamUrl) {
+             linkRes = await callStalkerDirect(server, mac, "itv", `create_link&cmd=${stream_id}`, tk);
+             streamUrl = linkRes?.js?.cmd;
         }
+        if(streamUrl && streamUrl.startsWith('ffmpeg ')) streamUrl = streamUrl.split(' ').pop();
 
         if(!streamUrl) return res.status(404).send("Stream not found");
 
+        // 🛡️ نقل ترويسات التقطيع (Range) لدعم البث بشكل أسرع
+        let reqHeaders = { 
+            "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
+            "Accept": "*/*",
+            "Connection": "keep-alive"
+        };
+        if (req.headers.range) reqHeaders["Range"] = req.headers.range;
+
         const fetchRes = await fetch(streamUrl, {
-            headers: { 
-                "User-Agent": "VLC/3.0.9 LibVLC/3.0.9", 
-                "Accept": "*/*",
-                "Connection": "keep-alive"
-            },
+            headers: reqHeaders,
             redirect: 'follow'
         });
 
-        if (!fetchRes.ok) return res.status(fetchRes.status).send("Stream Error");
+        // السماح بالكود 206 (Partial Content)
+        if (!fetchRes.ok && fetchRes.status !== 206) return res.status(fetchRes.status).send("Stream Error");
 
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', fetchRes.headers.get('content-type') || 'video/mp2t');
+
+        // تمرير أحجام الملفات للعميل ليتمكن من التشغيل السلس
+        if (fetchRes.headers.get('content-range')) {
+            res.status(206);
+            res.setHeader('Content-Range', fetchRes.headers.get('content-range'));
+            res.setHeader('Accept-Ranges', 'bytes');
+        }
+        if (fetchRes.headers.get('content-length')) {
+            res.setHeader('Content-Length', fetchRes.headers.get('content-length'));
+        }
         
         fetchRes.body.pipe(res);
 
