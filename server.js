@@ -13,10 +13,20 @@ process.on('uncaughtException', function (err) { console.error('Caught exception
 process.on('unhandledRejection', (reason, p) => { console.error('Unhandled Rejection: ', reason); });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ limit: '5mb', extended: true }));
+// 🌟 خفضنا الـ limit لتقليل استهلاك الرام عند رفع الطلبات
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
+
+// 🛡️ ترويسة الكاش لإجبار الأجهزة على الاحتفاظ بالقوائم لـ 4 ساعات (تقليل الزيارات)
+app.use((req, res, next) => {
+    if (req.path.includes('player_api') || req.path.includes('get_items') || req.path.includes('scan') || req.path.includes('get.php')) {
+        res.setHeader('Cache-Control', 'public, max-age=14400');
+    }
+    next();
+});
 
 const localCache = new Map();
+const listsCache = new Map(); // 🌟 كاش إضافي داخل السيرفر
 
 async function getAuthDataFromFirebase(password) {
     if (!password) return null;
@@ -249,7 +259,6 @@ app.get('/proxy_stream', async (req, res) => {
 
         let streamUrl = "";
         
-        // 🌟 للأفلام: نستخدم نفس هندسة Xtream المباشرة التي تنجح دائماً
         if (type === 'vod' || type === 'movie') {
             streamUrl = `${server}/play/movie.php?mac=${mac}&stream=${stream_id}.mkv&type=movie`;
         } else {
@@ -297,13 +306,24 @@ app.get('/proxy_stream', async (req, res) => {
             res.setHeader('Content-Type', (type === 'vod' || type === 'movie') ? 'video/mp4' : 'video/mp2t');
         }
 
-        fetchRes.body.pipe(res);
+        // 🌟 تفريغ الذاكرة (Memory Offloading) بدلاً من البايب التقليدي
+        // هذه الطريقة تمرر البيانات كقطرات مباشرة إلى المتصفح دون تخزينها في RAM الخاص برندر
+        fetchRes.body.on('data', (chunk) => {
+            if (!res.writableEnded) {
+                res.write(chunk);
+            }
+        });
+
+        fetchRes.body.on('end', () => {
+            if (!res.writableEnded) res.end();
+        });
 
         fetchRes.body.on('error', (err) => {
-            res.end();
+            if (!res.writableEnded) res.end();
         });
 
         req.on('close', () => { 
+            if (!res.writableEnded) res.end();
             if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy(); 
         });
 
@@ -367,6 +387,7 @@ app.get('/get.php', async (req, res) => {
     } catch(e) { return res.status(500).send("Error generating M3U"); }
 });
 
+// 🚀 مسارات Xtream (مع تفعيل الكاش الداخلي 🛡️ لتوفير الموارد)
 app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) => {
     let username = (req.query.username || req.body.username || "").trim();
     let password = (req.query.password || req.body.password || "").trim();
@@ -375,6 +396,17 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
     let seriesId = req.query.series_id || req.body.series_id;
 
     if (req.path.endsWith("xmltv.php")) return res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><tv></tv>');
+
+    // 🛡️ فحص الكاش الداخلي: نُرسل الرد المحفوظ مباشرة بدلاً من إعادة معالجته
+    let cacheKey = `xtream_${username}_${apiAction}_${categoryId || 'all'}_${seriesId || 'all'}`;
+    if (listsCache.has(cacheKey)) {
+        let cached = listsCache.get(cacheKey);
+        // التخزين صالح لمدة 4 ساعات
+        if (Date.now() - cached.time < 14400000) { 
+            res.setHeader('Content-Type', 'application/json');
+            return res.send(cached.data);
+        }
+    }
 
     let authData = await getAuthDataFromFirebase(password);
 
@@ -423,7 +455,6 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
             if (!sel.s.includes('ALL')) list = list.filter(c => sel.s.includes(String(c.id)));
             responseData = list.map(c => ({ category_id: String(c.id), category_name: String(c.title || c.name), parent_id: 0 }));
         } 
-        
         else if (apiAction === "get_live_streams") {
             let reqCat = (categoryId && categoryId !== "null" && categoryId !== "*" && categoryId !== "0") ? String(categoryId) : null;
             if (reqCat && !sel.l.includes('ALL') && !sel.l.includes(reqCat)) return res.json([]);
@@ -492,6 +523,14 @@ app.all(['/player_api.php', '/panel_api.php', '/xmltv.php'], async (req, res) =>
         }
         else if (apiAction === "get_short_epg" || apiAction === "get_simple_data_table") {
             responseData = { epg_listings: [] };
+        }
+
+        // 🛡️ حفظ النتيجة في الكاش الداخلي بصيغة نصية (String) لتجنب أخطاء التحويل لاحقاً
+        if (apiAction !== "") {
+            const stringData = JSON.stringify(responseData);
+            listsCache.set(cacheKey, { data: stringData, time: Date.now() });
+            res.setHeader('Content-Type', 'application/json');
+            return res.send(stringData);
         }
 
         return res.json(responseData);
@@ -569,7 +608,6 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
 
         res.status(fetchRes.status);
         
-        // 🌟 السحر هنا: ترويسات تخطي حماية CORS الكاملة للمشغل
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept-Ranges');
@@ -584,14 +622,24 @@ app.get(['/live/:user/:pass/:stream', '/movie/:user/:pass/:stream', '/series/:us
             res.setHeader('Content-Type', (type === "live" ? 'video/mp2t' : 'video/mp4'));
         }
         
-        fetchRes.body.pipe(res);
+        // 🌟 تفريغ الذاكرة المستمر (Memory Offloading)
+        fetchRes.body.on('data', (chunk) => {
+            if (!res.writableEnded) {
+                res.write(chunk);
+            }
+        });
 
-        fetchRes.body.on('error', (err) => res.end());
+        fetchRes.body.on('end', () => {
+            if (!res.writableEnded) res.end();
+        });
+
+        fetchRes.body.on('error', (err) => {
+            if (!res.writableEnded) res.end();
+        });
 
         req.on('close', () => {
-            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') {
-                fetchRes.body.destroy();
-            }
+            if (!res.writableEnded) res.end();
+            if (fetchRes.body && typeof fetchRes.body.destroy === 'function') fetchRes.body.destroy();
         });
 
     } catch(e) { 
